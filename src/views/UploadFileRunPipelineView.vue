@@ -137,9 +137,9 @@ export default {
 
   try {
     // Define your storage account URL and container name
-    const accountURL = process.env["VUE_APP_AZURE_STORAGE_ACCOUNT_URL"];
-    const containerName = process.env["VUE_APP_AZURE_CONTAINER_NAME"];
-    const sasToken = process.env["VUE_APP_AZURE_STORAGE_SAS_TOKEN"]; // Replace with your SAS token
+    const accountURL = import.meta.env["VITE_APP_AZURE_STORAGE_ACCOUNT_URL"];
+    const containerName = import.meta.env["VITE_APP_AZURE_CONTAINER_NAME"];
+    const sasToken = import.meta.env["VITE_APP_AZURE_STORAGE_SAS_TOKEN"]; // Replace with your SAS token
 
 
     // Initialize BlobServiceClient with the account URL and SAS token
