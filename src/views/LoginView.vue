@@ -10,18 +10,23 @@
       </div>
       <div class="g_id_signin" data-type="standard" data-size="large"></div>
     </div>
+
     <div v-else-if="isSigningOut">
       <!-- Show signing out message -->
       <div class="signout-message">
-        <h2>Signing you out...</h2>
-        <div class="spinner"></div>
+        <div class="signout-card">
+          <h2>Signing you out...</h2>
+          <div class="spinner"></div>
+        </div>
       </div>
     </div>
+
     <div v-else>
-      <!-- Greet the signed-in user -->
-      <div class="welcome-container">
+      <!-- User Information Card -->
+      <div class="user-card">
         <h2>Welcome, {{ userInfo.name }}!</h2>
-        <img :src="userInfo.picture" alt="Profile Picture" class="profile-picture" />
+        <p>Email: {{ userInfo.email }}</p>
+        <p>ID: {{ userInfo.sub }}</p>
         <button @click="signOut" class="button signout-button">Sign Out</button>
       </div>
     </div>
@@ -127,15 +132,30 @@ export default {
   color: #333;
 }
 
-.g_id_signin {
-  margin-top: 20px;
+/* User Card Styling */
+.user-card {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  width: 300px;
+  text-align: center;
 }
 
-h2 {
-  color: #4caf50;
+.user-card h2 {
+  font-size: 20px;
+  color: #007bff;
   margin-bottom: 10px;
 }
 
+.user-card p {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+/* Button Styling */
 button {
   background-color: #4caf50;
   color: white;
@@ -159,25 +179,31 @@ button.signout-button:hover {
   background-color: #d32f2f;
 }
 
-.welcome-container {
-  text-align: center;
-}
-
-.profile-picture {
-  margin-top: 10px;
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
+/* Signing Out Message */
 .signout-message {
   text-align: center;
 }
 
+.signout-card {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  width: 300px;
+  margin: 0 auto;
+}
+
+.signout-card h2 {
+  font-size: 18px;
+  color: #f44336;
+}
+
 .spinner {
-  margin-top: 10px;
+  margin-top: 20px;
   border: 4px solid #f3f3f3;
   border-radius: 50%;
-  border-top: 4px solid #4caf50;
+  border-top: 4px solid #007bff;
   width: 30px;
   height: 30px;
   animation: spin 1s linear infinite;

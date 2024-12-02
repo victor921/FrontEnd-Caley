@@ -11,25 +11,53 @@
 
         <!-- Selected Files List -->
         <div v-if="selectedFiles.length > 0" class="selected-files">
-    <div v-for="(item, index) in selectedFiles" :key="index" class="file-item">
-      <p>{{ item.file.name }}</p>
+          <div
+            v-for="(item, index) in selectedFiles"
+            :key="index"
+            class="file-item"
+          >
+            <!-- File Name -->
+            <p class="file-name">{{ item.file.name }}</p>
 
-      <!-- Folder Selection Dropdown -->
-      <select v-model="item.folder" class="folder-select">
-        <option disabled value="">Select Folder</option>
-        <option value="florida blue">Florida Blue</option>
-        <option value="aetna">Aetna</option>
-        <option value="national-flood">National Flood</option>
-      </select>
+            <!-- File Type Selection Dropdown -->
+            <div class="field-group">
+              <label for="fileType" class="field-label">File Type:</label>
+              <select
+                v-model="item.type"
+                @change="handleFileTypeChange(index)"
+                class="type-select"
+              >
+                <option disabled value="">Select File Type</option>
+                <option value="Services & Deductions">Services & Deductions</option>
+                <option value="Company Statement">Company Statement</option>
+                <option value="MVR">MVR</option>
+              </select>
+            </div>
 
-      <!-- Remove File Button -->
-      <button @click="removeFile(index)" class="remove-button">Remove</button>
-    </div>
-  </div>
+            <!-- Sub-Type Dropdown (for specific types) -->
+            <div
+              v-if="item.type === 'Company Statement' || item.type === 'MVR'"
+              class="field-group"
+            >
+              <label for="subType" class="field-label">Sub-Type:</label>
+              <select v-model="item.subType" class="subtype-select">
+                <option disabled value="">Select Sub-Type</option>
+                <option v-if="item.type === 'Company Statement'" value="florida blue">Florida Blue</option>
+                <option v-if="item.type === 'Company Statement'" value="aetna">Aetna</option>
+                <option v-if="item.type === 'Company Statement'" value="national flood">National Flood</option>
+                <option v-if="item.type === 'MVR'" value="AmWINS">AmWINS</option>
+                <option v-if="item.type === 'MVR'" value="Bristol">Bristol</option>
+              </select>
+            </div>
+
+            <!-- Remove File Button -->
+            <button @click="removeFile(index)" class="remove-button">Remove</button>
+          </div>
+        </div>
 
         <button
           @click="uploadFiles"
-          :disabled="loading || selectedFiles.length === 0 || !allFoldersSelected"
+          :disabled="loading || selectedFiles.length === 0 || !allFieldsValid"
           class="button"
         >
           Upload Files
@@ -37,8 +65,12 @@
 
         <!-- Progress Bar Section -->
         <div v-if="fileProgress.length > 0" class="progress-container">
-          <div v-for="(progress, index) in fileProgress" :key="index" class="progress-bar-wrapper">
-            <p>{{ selectedFiles[index]?.name || 'Uploading...' }}</p>
+          <div
+            v-for="(progress, index) in fileProgress"
+            :key="index"
+            class="progress-bar-wrapper"
+          >
+            <p>{{ selectedFiles[index]?.file.name || 'Uploading...' }}</p>
             <div class="progress-bar">
               <div class="progress" :style="{ width: progress + '%' }"></div>
             </div>
@@ -87,7 +119,7 @@
 
 <script>
 import { BlobServiceClient } from "@azure/storage-blob";
-import axios from "axios"; // Import axios for HTTP requests
+import axios from "axios";
 
 export default {
   data() {
@@ -95,8 +127,8 @@ export default {
       response: null,
       error: null,
       loading: false,
-      selectedFiles: [], // Now an array of objects { file: File, folder: '' }
-      fileProgress: [], // Tracks upload progress for each file
+      selectedFiles: [], // Array of objects { file, type, subType }
+      fileProgress: [], // Tracks upload progress
       pipelines: {
         runFiles: false,
         updateDatabase: false,
@@ -104,11 +136,14 @@ export default {
     };
   },
   computed: {
-    // Check if all selected files have folders assigned
-    allFoldersSelected() {
-      return this.selectedFiles.every((item) => item.folder !== "");
+    allFieldsValid() {
+      return this.selectedFiles.every(
+        (item) =>
+          item.type !== "" &&
+          (item.type !== "MVR" || item.subType !== "") &&
+          (item.type !== "Company Statement" || item.subType !== "")
+      );
     },
-    // Check if any pipeline is selected
     isAnyPipelineSelected() {
       return this.pipelines.runFiles || this.pipelines.updateDatabase;
     },
@@ -117,95 +152,85 @@ export default {
     handleFileSelection(event) {
       const newFiles = Array.from(event.target.files).map((file) => ({
         file,
-        folder: "",
+        type: "",
+        subType: "",
       }));
       this.selectedFiles = [...this.selectedFiles, ...newFiles];
       this.fileProgress = [...this.fileProgress, ...new Array(newFiles.length).fill(0)];
+    },
+    handleFileTypeChange(index) {
+      this.selectedFiles[index].subType = "";
     },
     removeFile(index) {
       this.selectedFiles.splice(index, 1);
       this.fileProgress.splice(index, 1);
     },
     async uploadFiles() {
-  if (!this.selectedFiles.length || !this.allFoldersSelected) {
-    this.error = "Please ensure all files have a folder assigned.";
-    return;
-  }
-
-  this.loading = true; // Set loading state to true
-  this.error = null; // Reset previous error
-
-  try {
-    // Define your storage account URL and container name
-    const accountURL = import.meta.env["VITE_APP_AZURE_STORAGE_ACCOUNT_URL"];
-    const containerName = import.meta.env["VITE_APP_AZURE_CONTAINER_NAME"];
-    const sasToken = import.meta.env["VITE_APP_AZURE_STORAGE_SAS_TOKEN"]; // Replace with your SAS token
-
-
-    // Initialize BlobServiceClient with the account URL and SAS token
-    const blobServiceClient = new BlobServiceClient(`${accountURL}?${sasToken}`);
-
-    // Get the container client using the container name
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-
-    // Alternatively, you can create the ContainerClient directly
-    // const containerURL = `${accountURL}/${containerName}`;
-    // const containerClient = new ContainerClient(`${containerURL}?${sasToken}`);
-
-    for (const [index, item] of this.selectedFiles.entries()) {
-      const folder = item.folder;
-      const file = item.file;
-
-      if (!folder) {
-        this.error = "All files must have a folder assigned.";
+      if (!this.allFieldsValid) {
+        this.error = "Please ensure all fields are filled correctly.";
         return;
       }
 
-      const blobName = `input_files/${folder}/${file.name}`;
-      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-
-      console.log(`Uploading to blob: ${blobName}`); // Debug log to verify blob name
-
-      // Upload each file
-      await blockBlobClient.uploadBrowserData(file, {
-        onProgress: (progressEvent) => {
-          if (progressEvent.loadedBytes && file.size) {
-            this.fileProgress[index] = Math.round(
-              (progressEvent.loadedBytes / file.size) * 100
-            );
-          }
-        },
-      });
-    }
-
-    this.response = "Files uploaded successfully!";
-  } catch (err) {
-    console.error("Error uploading files:", err);
-    this.error = "Failed to upload files.";
-  } finally {
-    this.loading = false; // Reset loading state
-    this.selectedFiles = []; // Clear selected files
-    this.fileProgress = []; // Reset progress tracking
-  }
-},
-    async runSelectedPipelines() {
-      this.response = null // Reset previous response
-      this.error = null // Reset previous error
-      this.loading = true // Set loading state to true
+      this.loading = true;
+      this.error = null;
 
       try {
-        // Execute pipelines based on the selected checkboxes
+        const accountURL = import.meta.env.VITE_APP_AZURE_STORAGE_ACCOUNT_URL;
+        const sasToken = import.meta.env.VITE_APP_AZURE_STORAGE_SAS_TOKEN;
+        const containerName = import.meta.env.VITE_APP_AZURE_CONTAINER_NAME;
+
+        const blobServiceClient = new BlobServiceClient(`${accountURL}?${sasToken}`);
+        const containerClient = blobServiceClient.getContainerClient(containerName);
+
+        for (const [index, item] of this.selectedFiles.entries()) {
+          const file = item.file;
+          let path = `input_files/${item.type}`;
+          if (item.subType) {
+            path += `/${item.subType}`;
+          }
+          const blobName = `${path}/${file.name}`;
+          const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+          console.log(`Uploading to: ${blobName}`);
+          await blockBlobClient.uploadBrowserData(file, {
+            onProgress: (progressEvent) => {
+              if (progressEvent.loadedBytes && file.size) {
+                this.fileProgress[index] = Math.round(
+                  (progressEvent.loadedBytes / file.size) * 100
+                );
+              }
+            },
+          });
+        }
+
+        this.response = "Files uploaded successfully!";
+      } catch (error) {
+        console.error("Upload failed:", error.message);
+        this.error = "Failed to upload files.";
+      } finally {
+        this.loading = false;
+        this.selectedFiles = [];
+        this.fileProgress = [];
+      }
+    },
+    async runSelectedPipelines() {
+      this.response = null;
+      this.error = null;
+      this.loading = true;
+
+      try {
         if (this.pipelines.runFiles) {
-          await this.executePipeline('trigger_automation')
+          await this.executePipeline("trigger_automation");
         }
         if (this.pipelines.updateDatabase) {
-          await this.executePipeline('update_sql')
+          await this.executePipeline("update_sql");
         }
-        this.response = 'Selected pipelines executed successfully!'
-      } catch (err) {
-        this.error = err.response?.data?.message || 'Failed to trigger process.'
+        this.response = "Selected pipelines executed successfully!";
+      } catch (error) {
+        console.error("Pipeline execution failed:", error.message);
+        this.error = "Failed to execute pipelines.";
       } finally {
-        this.loading = false // Reset loading state
+        this.loading = false;
       }
     },
     async executePipeline(pipelineName) {
@@ -214,85 +239,112 @@ export default {
         {},
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-        },
-      )
+        }
+      );
     },
   },
-}
+};
 </script>
 
+
 <style scoped>
+/* Overall Container Styling */
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
-  text-align: center;
-  background: #f8f9fa;
+  background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  color: #333;
 }
 
 .header {
-  font-size: 24px;
-  margin-bottom: 20px;
-  color: #333;
-}
-
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.section {
-  background: #ffffff;
-  padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  text-align: left;
-}
-
-.section h2 {
-  font-size: 20px;
+  text-align: center;
   color: #007bff;
-  margin-bottom: 10px;
-}
-
-.section p {
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 15px;
-}
-
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.checkbox-group label {
-  font-size: 14px;
-  color: #333;
+  font-size: 28px;
+  margin-bottom: 20px;
 }
 
 .file-input {
   display: block;
+  margin: 10px auto;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.file-item {
+  background-color: #f9f9f9;
+  margin: 10px 0;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column; /* Stack elements vertically */
+  align-items: flex-start; /* Align items to the left */
+}
+
+.file-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #555;
   margin-bottom: 10px;
+}
+
+.field-group {
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #333;
+}
+
+.type-select,
+.subtype-select {
+  width: 100%;
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.remove-button {
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  align-self: flex-end; /* Align the button to the right */
+}
+
+.remove-button:hover {
+  background-color: #b02a37;
 }
 
 .button {
   background-color: #007bff;
-  color: white;
+  color: #fff;
   border: none;
   padding: 10px 20px;
   cursor: pointer;
   border-radius: 4px;
   font-size: 14px;
-  transition: background-color 0.2s;
+  margin-top: 20px;
+  transition: background-color 0.3s;
 }
 
 .button:disabled {
@@ -302,76 +354,5 @@ export default {
 
 .button:hover:not(:disabled) {
   background-color: #0056b3;
-}
-
-.progress-container {
-  margin-top: 20px;
-}
-
-.progress-bar-wrapper {
-  margin-bottom: 15px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 10px;
-  background-color: #f3f3f3;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-top: 5px;
-}
-
-.progress {
-  height: 100%;
-  background-color: #007bff;
-  transition: width 0.3s ease;
-}
-
-.response {
-  color: #28a745;
-  font-weight: bold;
-}
-
-.error {
-  color: #dc3545;
-  font-weight: bold;
-}
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 4px solid #007bff;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-text {
-  color: white;
-  font-size: 16px;
-  margin-top: 10px;
 }
 </style>
