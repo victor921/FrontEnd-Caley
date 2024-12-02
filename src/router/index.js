@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 
 // Mock authentication function (replace with actual logic)
 const isAuthenticated = () => {
@@ -13,11 +12,6 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
-    },
-    {
-      path: '/login',
-      name: 'login',
       component: () => import('../views/LoginView.vue'),
     },
     {

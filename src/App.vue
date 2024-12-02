@@ -14,7 +14,7 @@ const userStore = useUserStore();
       <HelloWorld msg="Welcome" />
 
       <nav>
-        <RouterLink to="/login">Home</RouterLink>
+        <RouterLink to="/">Home</RouterLink>
         <!-- <RouterLink to="/runFiles">Admin</RouterLink> -->
         <!-- <RouterLink to="/dev">dev</RouterLink> -->
 
