@@ -19,10 +19,7 @@ jobs:
         with:
           submodules: true
           lfs: false
-            # Inject environment variables from GitHub Secrets
-      - name: Set up environment variables
-        run: |
-          echo "${{ secrets }}" > .env
+    
           
       - name: Build And Deploy
         id: builddeploy
