@@ -145,7 +145,7 @@ export default {
       );
     },
     isAnyPipelineSelected() {
-      console.log("All environment variables:", process.env);
+      console.log("All environment variables:", import.meta.env);
       return this.pipelines.runFiles || this.pipelines.updateDatabase;
     },
   },
