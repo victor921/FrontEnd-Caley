@@ -175,6 +175,8 @@ export default {
       this.error = null;
 
       try {
+        console.log("All environment variables:", import.meta.env || process.env);
+
         const accountURL = import.meta.env.VITE_APP_AZURE_STORAGE_ACCOUNT_URL;
         const sasToken = import.meta.env.VITE_APP_AZURE_STORAGE_SAS_TOKEN;
         const containerName = import.meta.env.VITE_APP_AZURE_CONTAINER_NAME;
@@ -191,7 +193,6 @@ export default {
           const blobName = `${path}/${file.name}`;
           const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-          console.log(`Uploading to: ${blobName}`);
           await blockBlobClient.uploadBrowserData(file, {
             onProgress: (progressEvent) => {
               if (progressEvent.loadedBytes && file.size) {
