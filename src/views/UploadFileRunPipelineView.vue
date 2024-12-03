@@ -123,6 +123,11 @@ import axios from "axios";
 
 export default {
   data() {
+    window.env = {
+      VITE_APP_AZURE_STORAGE_SAS_TOKEN:"%VITE_APP_AZURE_STORAGE_SAS_TOKEN%",
+      VITE_APP_AZURE_CONTAINER_NAME:"%VITE_APP_AZURE_CONTAINER_NAME%",
+      VITE_APP_AZURE_STORAGE_ACCOUNT_URL:"%VITE_APP_AZURE_STORAGE_ACCOUNT_URL%"
+  };
     return {
       response: null,
       error: null,
@@ -175,7 +180,7 @@ export default {
       this.error = null;
 
       try {
-        console.log("All environment variables:", import.meta.env || process.env);
+        console.log("All environment variables:", import.meta.env || window.env);
 
         const accountURL = import.meta.env.VITE_APP_AZURE_STORAGE_ACCOUNT_URL;
         const sasToken = import.meta.env.VITE_APP_AZURE_STORAGE_SAS_TOKEN;
