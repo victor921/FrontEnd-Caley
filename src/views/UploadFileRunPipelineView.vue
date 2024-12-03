@@ -123,11 +123,6 @@ import axios from "axios";
 
 export default {
   data() {
-    window.env = {
-      VITE_APP_AZURE_STORAGE_SAS_TOKEN:"%VITE_APP_AZURE_STORAGE_SAS_TOKEN%",
-      VITE_APP_AZURE_CONTAINER_NAME:"%VITE_APP_AZURE_CONTAINER_NAME%",
-      VITE_APP_AZURE_STORAGE_ACCOUNT_URL:"%VITE_APP_AZURE_STORAGE_ACCOUNT_URL%"
-  };
     return {
       response: null,
       error: null,
@@ -150,6 +145,7 @@ export default {
       );
     },
     isAnyPipelineSelected() {
+      console.log("All environment variables:", process.env);
       return this.pipelines.runFiles || this.pipelines.updateDatabase;
     },
   },
@@ -180,11 +176,10 @@ export default {
       this.error = null;
 
       try {
-        console.log("All environment variables:", import.meta.env || window.env);
 
-        const accountURL = import.meta.env.VITE_APP_AZURE_STORAGE_ACCOUNT_URL;
-        const sasToken = import.meta.env.VITE_APP_AZURE_STORAGE_SAS_TOKEN;
-        const containerName = import.meta.env.VITE_APP_AZURE_CONTAINER_NAME;
+        const accountURL = process.env.VITE_APP_AZURE_STORAGE_ACCOUNT_URL;
+        const sasToken = process.env.VITE_APP_AZURE_STORAGE_SAS_TOKEN;
+        const containerName = process.env.VITE_APP_AZURE_CONTAINER_NAME;
 
         const blobServiceClient = new BlobServiceClient(`${accountURL}?${sasToken}`);
         const containerClient = blobServiceClient.getContainerClient(containerName);
