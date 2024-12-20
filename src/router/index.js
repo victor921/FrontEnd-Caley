@@ -21,9 +21,15 @@ const router = createRouter({
       meta: { requiresAuth: true }, // This route requires authentication
     },
     {
+      path: '/uploadFiles',
+      name: 'uploadFiles',
+      component: () => import('../views/UploadFileView.vue'),
+      meta: { requiresAuth: true }, // This route requires authentication
+    },
+    {
       path: '/runFiles',
       name: 'runFiles',
-      component: () => import('../views/UploadFileRunPipelineView.vue'),
+      component: () => import('../views/RunPipelinesView.vue'),
       meta: { requiresAuth: true }, // This route requires authentication
     },
   ],

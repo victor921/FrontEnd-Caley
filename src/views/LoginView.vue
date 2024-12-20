@@ -1,18 +1,19 @@
 <template>
   <div class="google-signin">
     <div v-if="!userInfo && !isSigningOut">
-      <!-- Render Google Sign-In button when user is not signed in -->
-      <div id="g_id_onload"
-           :data-client_id="clientId"
-           data-callback="handleCredentialResponse"
-           data-context="signin"
-           data-ux_mode="popup">
-      </div>
+      <div
+      id="g_id_onload"
+      :data-client_id="clientId"
+      data-callback="handleCredentialResponse"
+      data-context="signin"
+      data-ux_mode="redirect"
+      ></div>
+      <h1>Please sign in to use other tabs</h1>
       <div class="g_id_signin" data-type="standard" data-size="large"></div>
+      <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
     </div>
 
     <div v-else-if="isSigningOut">
-      <!-- Show signing out message -->
       <div class="signout-message">
         <div class="signout-card">
           <h2>Signing you out...</h2>
@@ -22,11 +23,9 @@
     </div>
 
     <div v-else>
-      <!-- User Information Card -->
       <div class="user-card">
         <h2>Welcome, {{ userInfo.name }}!</h2>
         <p>Email: {{ userInfo.email }}</p>
-        <p>ID: {{ userInfo.sub }}</p>
         <button @click="signOut" class="button signout-button">Sign Out</button>
       </div>
     </div>
@@ -34,89 +33,113 @@
 </template>
 
 <script>
-import { useUserStore } from '@/stores/userStore';
+import { useUserStore } from "@/stores/userStore";
 
-// Access the store
 const userStore = useUserStore();
+
 export default {
   data() {
     return {
       clientId: "91719351588-ljjoae9ggl3i7n0jftrso8sbbn43uckf.apps.googleusercontent.com", // Replace with your actual Google Client ID
-      userInfo: null, // Holds user data if signed in
-      isSigningOut: false, // Track if the user is signing out
-      idleTimeout: null, // Reference for idle timeout
+      userInfo: null,
+      isSigningOut: false,
+      isSigningIn: false,
+      idleTimeout: null,
+      isGoogleSignInInitialized: false,
     };
   },
   mounted() {
-    // Check if a session exists in localStorage
-    const savedUser = localStorage.getItem("userInfo");
-    if (savedUser) {
-      this.userInfo = JSON.parse(savedUser); // Restore user info from storage
-    }
+    this.loadUserFromStorage();
+    this.initializeGoogleSignIn();
+  },
+  methods: {
+    loadUserFromStorage() {
+      const storedUserInfo = localStorage.getItem("userInfo");
+      if (storedUserInfo) {
+        try {
+          const userInfo = JSON.parse(storedUserInfo);
+          const tokenExpiration = new Date(userInfo.tokenExpiration);
+          if (new Date() < tokenExpiration) {
+            this.userInfo = userInfo;
+            userStore.setUser(this.userInfo);
+            this.startIdleTimer();
+          } else {
+            console.warn("Token expired. Clearing user data.");
+            localStorage.removeItem("userInfo");
+          }
+        } catch (error) {
+          console.error("Error parsing stored user info:", error);
+          localStorage.removeItem("userInfo");
+        }
+      }
+    },
+    initializeGoogleSignIn() {
+      if (this.isGoogleSignInInitialized || !window.google) return;
 
-    // Initialize Google Sign-In and auto-select session
-    if (window.google) {
       window.google.accounts.id.initialize({
         client_id: this.clientId,
         callback: this.handleCredentialResponse,
-        auto_select: true, // Automatically sign in if user is already authenticated
+        auto_select: !!this.userInfo,
       });
 
-      // Render Google Sign-In button if user isn't signed in
-      window.google.accounts.id.renderButton(
-        document.querySelector('.g_id_signin'),
-        { theme: 'outline', size: 'large', text: 'signin_with' }
-      );
+      window.google.accounts.id.renderButton(document.querySelector(".g_id_signin"), {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+      });
 
-      // Prompt to restore session if possible
       window.google.accounts.id.prompt();
-    }
-  },
-  methods: {
-    // Handle Google Sign-In response
-    handleCredentialResponse(response) {
+      this.isGoogleSignInInitialized = true;
+    },
+    async handleCredentialResponse(response) {
       try {
-        // Decode JWT token to extract user information
-        const base64Url = response.credential.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        this.isSigningIn = true;
+
+        const base64Url = response.credential.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
         const jsonPayload = decodeURIComponent(
           atob(base64)
-            .split('')
-            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-            .join('')
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
         );
-        this.userInfo = JSON.parse(jsonPayload); // Save user data (name, picture, email, etc.)
-        localStorage.setItem("userInfo", JSON.stringify(this.userInfo)); // Persist user data
-        console.log("User Info:", this.userInfo);
+
+        const userInfo = JSON.parse(jsonPayload);
+
+        // Add token expiration (example: token valid for 1 hour)
+        const tokenExpiration = new Date();
+        tokenExpiration.setSeconds(tokenExpiration.getSeconds() + 3600);
+        this.userInfo = { ...userInfo, tokenExpiration };
+
+        localStorage.setItem("userInfo", JSON.stringify(this.userInfo));
         userStore.setUser(this.userInfo);
-        // Set idle timeout
         this.startIdleTimer();
       } catch (error) {
         console.error("Error decoding user info:", error);
+        alert("An error occurred during sign-in. Please try again.");
+      } finally {
+        this.isSigningIn = false;
       }
     },
-    // Sign out the user
     async signOut() {
-      this.isSigningOut = true; // Set signing out state
+      this.isSigningOut = true;
       setTimeout(() => {
-        window.google.accounts.id.disableAutoSelect(); // Disable automatic sign-in
-        this.userInfo = null; // Clear user data
+        window.google.accounts.id.disableAutoSelect();
+        this.userInfo = null;
         userStore.clearUser();
-        this.isSigningOut = false; // Reset signing out state
-        localStorage.removeItem("userInfo"); // Remove user info from storage
-        console.log("User signed out.");
-        location.reload(); // Reload the page after signing out
-      }, 2000); // Delay to show signing out message
+        this.isSigningOut = false;
+        localStorage.removeItem("userInfo");
+        this.initializeGoogleSignIn();
+      }, 2000);
     },
-    // Start idle timeout to log out user after inactivity
     startIdleTimer() {
       if (this.idleTimeout) {
-        clearTimeout(this.idleTimeout); // Reset existing timeout
+        clearTimeout(this.idleTimeout);
       }
       this.idleTimeout = setTimeout(() => {
         this.signOut();
         alert("You have been signed out due to inactivity.");
-      }, 30 * 60 * 1000); // 30 minutes of inactivity
+      }, 30 * 60 * 1000); // 30 minutes
     },
   },
 };
@@ -132,7 +155,6 @@ export default {
   color: #333;
 }
 
-/* User Card Styling */
 .user-card {
   background: #ffffff;
   border: 1px solid #ddd;
@@ -155,7 +177,6 @@ export default {
   margin-bottom: 5px;
 }
 
-/* Button Styling */
 button {
   background-color: #4caf50;
   color: white;
@@ -179,7 +200,6 @@ button.signout-button:hover {
   background-color: #d32f2f;
 }
 
-/* Signing Out Message */
 .signout-message {
   text-align: center;
 }
@@ -192,11 +212,6 @@ button.signout-button:hover {
   padding: 20px;
   width: 300px;
   margin: 0 auto;
-}
-
-.signout-card h2 {
-  font-size: 18px;
-  color: #f44336;
 }
 
 .spinner {
