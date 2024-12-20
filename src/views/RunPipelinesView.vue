@@ -110,7 +110,7 @@ export default {
       this.loadingFiles = true
       this.errorFiles = null
       try {
-        const response = await axios.get('https://cas.rocox.co/api/fetch_files')
+        const response = await axios.get('https://dev.rocox.co/api/fetch_files')
         const filesString = response.data
         this.files = filesString.split(',').map((file) => file.trim())
         this.selectAll = false // Reset select all checkbox
@@ -169,7 +169,7 @@ export default {
     async executePipeline(pipelineName, payload) {
       console.log(payload)
       await axios.post(
-        `https://cas.rocox.co/api/execute_pipeline?pipeline_name=${pipelineName}`,
+        `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${pipelineName}`,
         payload,
         {
           headers: {

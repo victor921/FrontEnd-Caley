@@ -120,7 +120,7 @@ export default {
         formData.append('company', config.company)
 
         try {
-          const response = await axios.post('https://cas.rocox.co/api/upload_files', formData, {
+          const response = await axios.post('https://dev.rocox.co/api/upload_files', formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             },
