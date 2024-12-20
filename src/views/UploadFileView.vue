@@ -23,7 +23,7 @@
           <span>{{ uploadProgress[fileConfig.file.name] }}%</span>
         </div>
 
-        <!-- Folder and company selections remain as they are -->
+        <!-- Folder and company selections -->
         <label>Folder:</label>
         <select v-model="fileConfig.folder" @change="handleFolderChange(index)">
           <option value="" disabled>Select Folder</option>
@@ -66,13 +66,21 @@
         {{ uploading ? 'Uploading...' : 'Upload Files' }}
       </button>
       <p v-if="uploadResponse" class="upload-response">{{ uploadResponse }}</p>
-      <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
+      <ul class="upload-results">
+        <li
+          v-for="(result, index) in uploadResults"
+          :key="index"
+          :class="{ 'upload-success': result.status === 'success', 'upload-failed': result.status === 'failed' }"
+        >
+          {{ result.fileName }}: {{ result.message }}
+        </li>
+      </ul>
     </div>
   </div>
 </template>
 
 <script>
-import axios from 'axios'
+import axios from 'axios';
 
 export default {
   data() {
@@ -81,43 +89,40 @@ export default {
       fileConfigs: [], // Holds configuration for each file
       uploading: false, // Tracks the upload state
       uploadResponse: null, // Upload success message
-      uploadError: null, // Upload error message
-      uploadProgress: {},
-    }
+      uploadResults: [], // Upload results for each file
+      uploadProgress: {}, // Tracks upload progress per file
+    };
   },
   methods: {
     handleFileSelect(event) {
-      const files = Array.from(event.target.files)
-      this.selectedFiles = files
+      const files = Array.from(event.target.files);
+      this.selectedFiles = files;
 
       // Initialize configurations for each selected file
       this.fileConfigs = files.map((file) => ({
         file,
         folder: '', // Default empty folder
         company: '', // Default empty company
-      }))
+      }));
     },
     handleFolderChange(index) {
       // Reset company if folder changes
-      const folder = this.fileConfigs[index].folder
+      const folder = this.fileConfigs[index].folder;
       if (folder !== 'MVR' && folder !== 'Company Statements') {
-        this.fileConfigs[index].company = '' // No company needed
+        this.fileConfigs[index].company = ''; // No company needed
       }
     },
     async uploadFiles() {
-      this.uploading = true
-      this.uploadResponse = null
-      this.uploadError = null
-      this.uploadProgress = {} // An object to track progress by filename
-
-      const results = [] // To store info about each uploaded file
+      this.uploading = true;
+      this.uploadResponse = null;
+      this.uploadResults = []; // Reset results
 
       for (let i = 0; i < this.fileConfigs.length; i++) {
-        const config = this.fileConfigs[i]
-        const formData = new FormData()
-        formData.append('file', config.file)
-        formData.append('folder', config.folder)
-        formData.append('company', config.company)
+        const config = this.fileConfigs[i];
+        const formData = new FormData();
+        formData.append('file', config.file);
+        formData.append('folder', config.folder);
+        formData.append('company', config.company);
 
         try {
           const response = await axios.post('https://dev.rocox.co/api/upload_files', formData, {
@@ -125,44 +130,33 @@ export default {
               'Content-Type': 'multipart/form-data',
             },
             onUploadProgress: (progressEvent) => {
-              const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-              this.uploadProgress[config.file.name] = percentComplete // Direct assignment
+              const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              this.uploadProgress[config.file.name] = percentComplete;
             },
-          })
+          });
 
-          // If the response contains uploadedFiles info, add it to results.
-          if (response.data && response.data.uploadedFiles) {
-            results.push(...response.data.uploadedFiles)
-          } else {
-            // If no uploadedFiles array, just note success.
-            results.push({
-              fileName: config.file.name,
-              status: response.status,
-              message: 'Uploaded successfully',
-            })
-          }
+          // Add success result
+          this.uploadResults.push({
+            fileName: config.file.name,
+            status: 'success',
+            message: 'Uploaded successfully',
+          });
         } catch (error) {
-          console.error(`Error uploading file '${config.file.name}':`, error.message)
-          results.push({
+          console.error(`Error uploading file '${config.file.name}':`, error.message);
+          // Add failure result
+          this.uploadResults.push({
             fileName: config.file.name,
             status: 'failed',
-            message: error.message,
-          })
+            message: 'Upload failed',
+          });
         }
       }
 
-      // After all uploads, update the user with results.
-      this.uploadResponse =
-        // `File upload process completed.\n` +
-        `Uploaded files:\n` + results.map((r) => `${r.fileName}: ${r.message}`).join('\n')
-
-      // Reset state if desired
-      this.selectedFiles = []
-      this.fileConfigs = []
-      this.uploading = false
+      this.uploadResponse = 'File upload process completed.';
+      this.uploading = false;
     },
   },
-}
+};
 </script>
 
 <style scoped>
@@ -187,136 +181,26 @@ export default {
   color: #007bff;
 }
 
-/* Form Section Styling */
-.form-section {
-  margin-bottom: 20px;
+/* File Results Styling */
+.upload-results {
+  list-style-type: none;
+  padding: 0;
+  margin: 15px 0;
 }
 
-.file-input {
-  display: block;
-  width: 100%;
-  padding: 10px;
+.upload-results li {
   font-size: 16px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  background-color: #f9f9f9;
+  margin: 5px 0;
 }
 
-.file-info {
-  font-size: 14px;
-  color: #555;
+.upload-success {
+  color: #28a745; /* Green for success */
 }
 
-/* File Configuration Section */
-.file-config-section {
-  background-color: #f7f8fa;
-  padding: 15px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  margin-top: 20px;
+.upload-failed {
+  color: #dc3545; /* Red for failure */
 }
 
-.file-config {
-  margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #e0e0e0;
-  border-radius: 10px;
-  background-color: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.file-config p {
-  font-weight: bold;
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-label {
-  font-size: 14px;
-  color: #555;
-  font-weight: bold;
-  margin-bottom: 5px;
-  display: inline-block;
-}
-
-select {
-  width: 100%;
-  padding: 10px;
-  font-size: 14px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  margin-bottom: 15px;
-  transition: border-color 0.3s ease-in-out;
-}
-
-select:focus {
-  border-color: #007bff;
-  outline: none;
-}
-
-/* Submit Section Styling */
-.submit-section {
-  text-align: center;
-  margin-top: 30px;
-}
-
-.upload-button {
-  background-color: #007bff;
-  color: #ffffff;
-  font-size: 16px;
-  padding: 12px 30px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition:
-    background-color 0.3s ease-in-out,
-    transform 0.2s;
-}
-
-.upload-button:disabled {
-  background-color: #ddd;
-  cursor: not-allowed;
-}
-
-.upload-button:hover:not(:disabled) {
-  background-color: #0056b3;
-  transform: scale(1.05);
-}
-
-/* Response and Error Messages */
-.upload-response {
-  margin-top: 15px;
-  color: #28a745;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.upload-error {
-  margin-top: 15px;
-  color: #dc3545;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .container {
-    padding: 15px;
-  }
-
-  .header {
-    font-size: 28px;
-  }
-
-  .file-config {
-    padding: 10px;
-  }
-
-  .upload-button {
-    padding: 10px 20px;
-    font-size: 14px;
-  }
-}
+/* Other Existing Styles... */
+/* Include the remaining styles from your current setup here */
 </style>

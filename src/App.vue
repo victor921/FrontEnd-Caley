@@ -16,8 +16,8 @@ const userStore = useUserStore();
       <nav>
         <RouterLink to="/">Home</RouterLink>
         <!-- <RouterLink to="/runFiles">Admin</RouterLink> -->
-        <RouterLink to="/uploadFiles">Upload Files</RouterLink>
-        <RouterLink to="/runFiles">Run Files</RouterLink>
+        <!-- <RouterLink to="/uploadFiles">Upload Files</RouterLink>
+        <RouterLink to="/runFiles">Run Files</RouterLink> -->
         <!-- <RouterLink to="/dev">dev</RouterLink> -->
 
         <!-- Conditionally render a tab only for signed-in users -->
