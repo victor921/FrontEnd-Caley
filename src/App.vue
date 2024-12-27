@@ -318,7 +318,7 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: #666666;
   padding: 2rem;
   text-align: center;
   justify-content: center;
@@ -345,7 +345,7 @@ onMounted(async () => {
 }
 
 .signout-card {
-  background: #fff;
+  background: #606060;
   border-radius: 8px;
   padding: 2rem;
   text-align: center;
