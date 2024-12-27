@@ -1,18 +1,20 @@
 <template>
-  <div class="google-signin">
-    <div v-if="!userInfo && !isSigningOut">
+  <div>
+    <!-- Google Sign-In -->
+    <div v-if="!userInfo && !isSigningOut" class="google-signin">
       <div
-      id="g_id_onload"
-      :data-client_id="clientId"
-      data-callback="handleCredentialResponse"
-      data-context="signin"
-      data-ux_mode="redirect"
+        id="g_id_onload"
+        :data-client_id="clientId"
+        data-callback="handleCredentialResponse"
+        data-context="signin"
+        data-ux_mode="redirect"
       ></div>
       <h1>Please sign in to use other tabs</h1>
       <div class="g_id_signin" data-type="standard" data-size="large"></div>
       <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
     </div>
 
+    <!-- Sign Out Animation -->
     <div v-else-if="isSigningOut">
       <div class="signout-message">
         <div class="signout-card">
@@ -22,10 +24,19 @@
       </div>
     </div>
 
+    <!-- Profile Icon -->
     <div v-else>
-      <div class="user-card">
-        <h2>Welcome, {{ userInfo.name }}!</h2>
-        <p>Email: {{ userInfo.email }}</p>
+      <div class="profile-icon-container" @click="togglePopover">
+        <img
+          class="profile-icon"
+          :src="userInfo?.picture || "
+          alt="User Avatar"
+        />
+      </div>
+
+      <!-- Popover with Logout Option -->
+      <div v-if="showPopover" class="popover">
+        <p class="user-name">{{ userInfo.email }}</p>
         <button @click="signOut" class="button signout-button">Sign Out</button>
       </div>
     </div>
@@ -44,8 +55,7 @@ export default {
       userInfo: null,
       isSigningOut: false,
       isSigningIn: false,
-      idleTimeout: null,
-      isGoogleSignInInitialized: false,
+      showPopover: false, // Control for popover visibility
     };
   },
   mounted() {
@@ -53,6 +63,9 @@ export default {
     this.initializeGoogleSignIn();
   },
   methods: {
+    togglePopover() {
+      this.showPopover = !this.showPopover;
+    },
     loadUserFromStorage() {
       const storedUserInfo = localStorage.getItem("userInfo");
       if (storedUserInfo) {
@@ -62,7 +75,6 @@ export default {
           if (new Date() < tokenExpiration) {
             this.userInfo = userInfo;
             userStore.setUser(this.userInfo);
-            this.startIdleTimer();
           } else {
             console.warn("Token expired. Clearing user data.");
             localStorage.removeItem("userInfo");
@@ -89,7 +101,6 @@ export default {
       });
 
       window.google.accounts.id.prompt();
-      this.isGoogleSignInInitialized = true;
     },
     async handleCredentialResponse(response) {
       try {
@@ -113,7 +124,6 @@ export default {
 
         localStorage.setItem("userInfo", JSON.stringify(this.userInfo));
         userStore.setUser(this.userInfo);
-        this.startIdleTimer();
       } catch (error) {
         console.error("Error decoding user info:", error);
         alert("An error occurred during sign-in. Please try again.");
@@ -129,107 +139,65 @@ export default {
         userStore.clearUser();
         this.isSigningOut = false;
         localStorage.removeItem("userInfo");
-        this.initializeGoogleSignIn();
+        window.location.reload(); // Refresh the page on sign out
       }, 2000);
-    },
-    startIdleTimer() {
-      if (this.idleTimeout) {
-        clearTimeout(this.idleTimeout);
-      }
-      this.idleTimeout = setTimeout(() => {
-        this.signOut();
-        alert("You have been signed out due to inactivity.");
-      }, 30 * 60 * 1000); // 30 minutes
     },
   },
 };
 </script>
 
 <style scoped>
-.google-signin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 50px;
-  font-family: Arial, sans-serif;
-  color: #333;
+/* Profile Icon Container */
+.profile-icon-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  cursor: pointer;
+  z-index: 1000;
 }
 
-.user-card {
-  background: #ffffff;
+.profile-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  transition: transform 0.3s ease;
+}
+
+.profile-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Popover */
+.popover {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: white;
   border: 1px solid #ddd;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  padding: 20px;
-  width: 300px;
-  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  width: 200px;
+  z-index: 1000;
 }
 
-.user-card h2 {
-  font-size: 20px;
-  color: #007bff;
+.user-name {
+  font-size: 16px;
+  font-weight: bold;
   margin-bottom: 10px;
 }
 
-.user-card p {
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 5px;
-}
-
-button {
-  background-color: #4caf50;
+.button.signout-button {
+  background-color: #f44336;
   color: white;
   border: none;
-  padding: 10px 20px;
-  cursor: pointer;
+  padding: 8px 16px;
   border-radius: 4px;
-  margin-top: 10px;
-  transition: background-color 0.3s ease;
+  cursor: pointer;
 }
 
-button:hover {
-  background-color: #45a049;
-}
-
-button.signout-button {
-  background-color: #f44336;
-}
-
-button.signout-button:hover {
+.button.signout-button:hover {
   background-color: #d32f2f;
-}
-
-.signout-message {
-  text-align: center;
-}
-
-.signout-card {
-  background: #ffffff;
-  border: 1px solid #ddd;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 20px;
-  width: 300px;
-  margin: 0 auto;
-}
-
-.spinner {
-  margin-top: 20px;
-  border: 4px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 4px solid #007bff;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
 }
 </style>

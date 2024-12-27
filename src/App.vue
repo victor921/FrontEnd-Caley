@@ -1,95 +1,519 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
-import { useUserStore } from '@/stores/userStore';
+import { RouterView, useRouter } from "vue-router";
+import { ref, onMounted } from "vue";
+import { useUserStore } from "@/stores/userStore";
 
+const router = useRouter();
 const userStore = useUserStore();
+
+// Your existing variables
+const clientId = "91719351588-ljjoae9ggl3i7n0jftrso8sbbn43uckf.apps.googleusercontent.com";
+const userInfo = ref(null);
+const isSigningOut = ref(false);
+const isSigningIn = ref(false);
+const showPopover = ref(false);
+
+// New state to control popup
+const showSignInPopup = ref(false);
+
+// Toggle for the existing popover (profile icon)
+const togglePopover = () => {
+  showPopover.value = !showPopover.value;
+};
+
+// Load user from localStorage if token hasn't expired
+const loadUserFromStorage = () => {
+  const storedUserInfo = localStorage.getItem("userInfo");
+  if (storedUserInfo) {
+    try {
+      const user = JSON.parse(storedUserInfo);
+      const tokenExpiration = new Date(user.tokenExpiration);
+      if (new Date() < tokenExpiration) {
+        userInfo.value = user;
+        userStore.setUser(userInfo.value);
+      } else {
+        console.warn("Token expired. Clearing user data.");
+        localStorage.removeItem("userInfo");
+      }
+    } catch (error) {
+      console.error("Error parsing stored user info:", error);
+      localStorage.removeItem("userInfo");
+    }
+  }
+};
+
+// Ensure Google script is loaded before initializing
+const ensureGoogleScriptLoaded = () => {
+  return new Promise((resolve) => {
+    const checkGoogle = () => {
+      if (window.google && window.google.accounts) {
+        resolve();
+      } else {
+        setTimeout(checkGoogle, 100); // Wait and try again
+      }
+    };
+    checkGoogle();
+  });
+};
+
+// Initialize Google Sign-In
+const initializeGoogleSignIn = () => {
+  if (window.google) {
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleCredentialResponse,
+      auto_select: !!userInfo.value,
+    });
+    window.google.accounts.id.renderButton(
+      document.querySelector(".g_id_signin"),
+      {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+      }
+    );
+    // This prompts a one-tap sign in if available
+    window.google.accounts.id.prompt();
+  }
+};
+
+// Handle Google Credential Response
+const handleCredentialResponse = async (response) => {
+  try {
+    isSigningIn.value = true;
+    const base64Url = response.credential.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const user = JSON.parse(jsonPayload);
+
+    // Add token expiration (example: token valid for 1 hour)
+    const tokenExpiration = new Date();
+    tokenExpiration.setSeconds(tokenExpiration.getSeconds() + 3600);
+
+    userInfo.value = { ...user, tokenExpiration };
+
+    localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
+    userStore.setUser(userInfo.value);
+
+    // If signing in from the popup, hide the popup
+    showSignInPopup.value = false;
+  } catch (error) {
+    console.error("Error decoding user info:", error);
+    alert("An error occurred during sign-in. Please try again.");
+  } finally {
+    isSigningIn.value = false;
+  }
+};
+
+// Sign Out
+const signOut = async () => {
+  isSigningOut.value = true;
+  setTimeout(() => {
+    window.google.accounts.id.disableAutoSelect();
+    userInfo.value = null;
+    userStore.clearUser();
+    isSigningOut.value = false;
+    localStorage.removeItem("userInfo");
+    window.location.reload(); // Refresh the page on sign out
+  }, 2000);
+};
+
+// Prevent navigation if user is not signed in (for nav clicks)
+const handleNavigate = (path) => {
+  if (!userInfo.value) {
+    showSignInPopup.value = true;
+  } else {
+    router.push(path);
+  }
+};
+
+// Lifecycle
+onMounted(async () => {
+  loadUserFromStorage();
+  await ensureGoogleScriptLoaded();
+  initializeGoogleSignIn();
+});
 </script>
 
 <template>
-  <header>
-    <img alt="Caley logo" class="logo" src="@/assets/logo2.png" width="125" height="125" />
+  <div id="app">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <!-- Brand Section -->
+      <div class="brand-section">
+        <img alt="Logo" class="logo" src="@/assets/logo2.png" />
+      </div>
 
-    <div class="wrapper">
-      <HelloWorld msg="Welcome" />
-
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <!-- <RouterLink to="/runFiles">Admin</RouterLink> -->
-        <!-- <RouterLink to="/uploadFiles">Upload Files</RouterLink>
-        <RouterLink to="/runFiles">Run Files</RouterLink> -->
-        <!-- <RouterLink to="/dev">dev</RouterLink> -->
-
-        <!-- Conditionally render a tab only for signed-in users -->
-        <RouterLink v-if="userStore.userInfo" to="/runFiles">Run Files</RouterLink>
-        <RouterLink v-if="userStore.userInfo" to="/uploadFiles">Upload Files</RouterLink>
-
+      <!-- Navigation Menu -->
+      <nav class="menu">
+        <div class="menu-item" @click="handleNavigate('/')">
+          <img src="@/assets/icons/home.svg" alt="Dashboard" />
+          <span>Dashboard</span>
+        </div>
+        <div class="menu-item" @click="handleNavigate('/runFiles')">
+          <img src="@/assets/icons/run.svg" alt="Run Files" />
+          <span>Run Files</span>
+        </div>
+        <div class="menu-item" @click="handleNavigate('/uploadFiles')">
+          <img src="@/assets/icons/upload.svg" alt="Upload Files" />
+          <span>Upload Files</span>
+        </div>
       </nav>
-    </div>
-  </header>
 
-  <RouterView />
+      <!-- Sign-In Container at bottom of sidebar -->
+      <div class="signin-container">
+        <!-- If the user is not signed in or is in sign-out process, show sign-in button -->
+        <div v-if="!userInfo && !isSigningOut" class="google-signin">
+          <h3>Please sign in</h3>
+          <div class="g_id_signin" data-type="standard" data-size="large"></div>
+          <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
+        </div>
+        <!-- If user is signed in, show a profile icon (or sign-out button, etc.) -->
+        <div v-else-if="userInfo">
+          <div class="profile-icon-container" @click="togglePopover">
+            <img
+              class="profile-icon"
+              :src="userInfo?.picture || '@/assets/icons/avatar.svg'"
+              alt="User Avatar"
+            />
+          </div>
+          <!-- Popover with Logout Option -->
+          <div v-if="showPopover" class="popover">
+            <p class="user-name">{{ userInfo.email }}</p>
+            <button @click="signOut" class="button signout-button">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <!-- If user is signed in, show the actual pages (RouterView). If not, block access. -->
+    <main class="main-content" v-if="userInfo">
+      <RouterView />
+    </main>
+
+    <div v-else class="locked-overlay">
+      <h2>Access Restricted</h2>
+      <p>Please sign in to access the dashboard.</p>
+      <!-- You can optionally place the Google Sign-In button here as well -->
+    </div>
+
+    <!-- Sign Out Animation -->
+    <div v-if="isSigningOut">
+      <div class="signout-message">
+        <div class="signout-card">
+          <h2>Signing you out...</h2>
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Popup that appears if user tries to navigate but isn't signed in -->
+    <transition name="fade">
+      <div
+        v-if="showSignInPopup && !userInfo"
+        class="popup-backdrop"
+        @click.self="showSignInPopup = false"
+      >
+        <div class="popup">
+          <h2>Please sign in to continue</h2>
+          <p>You must be signed in to access this section.</p>
+          <!-- The Google Sign-In button again or some instructions -->
+          <div class="g_id_signin" data-type="standard" data-size="large"></div>
+          <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
+        </div>
+      </div>
+    </transition>
+  </div>
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
+/* General Layout */
+#app {
+  display: flex;
+  height: 100vh;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 300px;
+  background-color: #f9fafc;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  color: #333;
+  border-right: 1px solid #e6e6e6;
+  position: relative;
+}
+
+.brand-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
 }
 
 .logo {
-  display: block;
-  margin: 0 auto 2rem;
+  width: 100px;
+  height: 100px;
 }
 
-nav {
-  width: 100%;
-  font-size: 12px;
+.menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  text-decoration: none;
+  color: #333;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.menu-item img {
+  width: 24px;
+  height: 24px;
+  margin-right: 1rem;
+}
+
+.menu-item:hover {
+  background-color: #eef2f7;
+}
+
+.menu-item span {
+  font-size: 1rem;
+}
+
+/* Sign-in container at the bottom of the sidebar */
+.signin-container {
+  margin-top: auto;
+  padding: 1rem 0;
   text-align: center;
-  margin-top: 2rem;
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  padding: 1rem;
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+/* Overlay when user is not signed in */
+.locked-overlay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  padding: 2rem;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+/* Google Sign-In Styles */
+.google-signin {
+  text-align: center;
 }
 
-nav a:first-of-type {
-  border: 0;
+/* Sign Out Animation */
+.signout-message {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
 }
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+.signout-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.spinner {
+  margin-top: 1rem;
+  width: 24px;
+  height: 24px;
+  border: 4px solid #ccc;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Profile icon & popover */
+.profile-icon-container {
+  margin: 0 auto;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.profile-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  transition: transform 0.3s ease;
+}
+
+.profile-icon:hover {
+  transform: scale(1.1);
+}
+
+.popover {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  width: 200px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.button.signout-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button.signout-button:hover {
+  background-color: #d32f2f;
+}
+
+/* Popup for sign-in if user tries to navigate */
+.popup-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.popup {
+  background: #5b5b5b;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+/* Fade transition for popup */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.4s;
+}
+.fade-enter, .fade-leave-to {
+  opacity: 0;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e6e6e6;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 1rem;
+    position: static;
+  }
+
+  .brand-section {
+    margin: 0;
   }
 
   .logo {
-    margin: 0 2rem 0 0;
+    width: 60px;
+    height: 60px;
   }
 
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
+  .menu {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 1rem;
+    margin-bottom: 0;
   }
 
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
+  .menu-item {
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem;
+  }
 
-    padding: 1rem 0;
+  .menu-item img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .menu-item span {
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+
+  .signin-container {
+    margin-top: 0;
+    padding: 1rem;
+  }
+
+  .main-content {
+    flex: 1;
+    padding: 1rem;
+  }
+
+  .locked-overlay {
+    padding: 1rem;
+  }
+
+  .popover {
+    position: static;
+    transform: none;
     margin-top: 1rem;
   }
 }

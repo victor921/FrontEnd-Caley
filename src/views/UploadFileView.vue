@@ -1,6 +1,5 @@
 <template>
   <div class="container">
-    <h1 class="header">Upload Files with Folder and Company Selection</h1>
 
     <!-- File Upload Section -->
     <div class="form-section">
