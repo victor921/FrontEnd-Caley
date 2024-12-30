@@ -4,7 +4,7 @@ import { ref, onMounted } from 'vue';
 const files = ref([]);
 const fetchFiles = async () => {
   try {
-    const response = await fetch("http://localhost:7071/api/fetch_files?folder=input_files/");
+    const response = await fetch("https://dev.rocox.co/api/fetch_files?folder=input_files/");
     files.value = await response.json();
   } catch (error) {
     console.error("Error fetching files:", error);

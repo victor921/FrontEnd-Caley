@@ -1,19 +1,12 @@
 <template>
   <div class="container">
-
     <!-- File Upload Section -->
     <div class="form-section">
       <label for="file-input" class="file-upload-label">
         <i class="fas fa-cloud-upload-alt"></i>
         Click to select files
       </label>
-      <input
-        id="file-input"
-        type="file"
-        multiple
-        @change="handleFileSelect"
-        class="file-input"
-      />
+      <input id="file-input" type="file" multiple @change="handleFileSelect" class="file-input" />
       <p v-if="selectedFiles.length" class="file-info">
         Selected Files: {{ selectedFiles.map((file) => file.name).join(', ') }}
       </p>
@@ -24,7 +17,9 @@
       <h2>Configure Each File</h2>
       <div v-for="(fileConfig, index) in fileConfigs" :key="index" class="file-config">
         <div class="file-details">
-          <p><strong>{{ fileConfig.file.name }}</strong></p>
+          <p>
+            <strong>{{ fileConfig.file.name }}</strong>
+          </p>
           <div v-if="uploading && uploadProgress[fileConfig.file.name]">
             <progress :value="uploadProgress[fileConfig.file.name]" max="100"></progress>
             <span>{{ uploadProgress[fileConfig.file.name] }}%</span>
@@ -46,15 +41,54 @@
               <option value="AmWINS">AmWINS</option>
               <option value="Bristol W Ins Co">Bristol W Ins Co</option>
               <option value="Infinity Ins Co">Infinity Ins Co</option>
+              <option value="United Automobile Ins Co">United Automobile Ins Co</option>
+              <option value="National Flood Ins Co">National Flood Ins Co</option>
+              <option value="Progressive Amer Ins Co">Progressive Amer Ins Co</option>
+              <option value="Responsive Auto Ins Co">Responsive Auto Ins Co</option>
             </select>
           </div>
 
           <div v-else-if="fileConfig.folder === 'Company Statements'" class="dropdown-group">
             <label class="dropdown-label">Select Company:</label>
             <select v-model="fileConfig.company" class="dropdown">
-              <option value="Florida Blue">Florida Blue</option>
+              <option value="Aetna Hlth Inc FL Corp">Aetna Hlth Inc FL Corp</option>
+              <option value="Aetna Override">Aetna Override</option>
               <option value="Ambetter">Ambetter</option>
+              <option value="Ameritas Mut Holding Grp">Ameritas Mut Holding Grp</option>
+              <option value="American Integrity Ins Co">American Integrity Ins Co</option>
+              <option value="AmWINS Access">AmWINS Access</option>
+              <option value="Appalachian Ins Co">Appalachian Ins Co</option>
+              <option value="ASCENDANT BUSINESS INSURANCE SOLUTIONS">
+                ASCENDANT BUSINESS INSURANCE SOLUTIONS
+              </option>
+              <option value="BASS UNDER WRITERS">BASS UNDER WRITERS</option>
+              <option value="Bristol W Ins Co">Bristol W Ins Co</option>
+              <option value="Cigna Hlth Grp">Cigna Hlth Grp</option>
+              <option value="Citizens Prop Ins Corp">Citizens Prop Ins Corp</option>
+              <option value="Florida Blue">Florida Blue</option>
+              <option value="Geico Ind Co">Geico Ind Co</option>
+              <option value="Geovera Holdings Inc Grp">Geovera Holdings Inc Grp</option>
+              <option value="Granada Ins Co">Granada Ins Co</option>
+              <option value="HAGERTY">HAGERTY</option>
+              <option value="Infinity Ind Ins Co">Infinity Ind Ins Co</option>
+              <option value="Molina Hlthcare Of FL Inc">Molina Hlthcare Of FL Inc</option>
+              <option value="Monarch Ins Co Inc">Monarch Ins Co Inc</option>
+              <option value="National Automotive Ins Co">National Automotive Ins Co</option>
+              <option value="National Flood Ins Co">National Flood Ins Co</option>
+              <option value="Next Insurance US COMPANY">Next Insurance US COMPANY</option>
+              <option value="Oscar Ins Corp">Oscar Ins Corp</option>
+              <option value="Oscar Override">Oscar Override</option>
+              <option value="Progressive Amer Ins Co">Progressive Amer Ins Co</option>
+              <option value="Responsive Auto Ins Co">Responsive Auto Ins Co</option>
+              <option value="Security First Ins Co">Security First Ins Co</option>
               <option value="Slide Ins Co">Slide Ins Co</option>
+              <option value="Southern Oak Ins Co">Southern Oak Ins Co</option>
+              <option value="THIMBLE INSURANCE">THIMBLE INSURANCE</option>
+              <option value="Traverlers">Traverlers</option>
+              <option value="United Automobile Ins Co">United Automobile Ins Co</option>
+              <option value="United HealthCare">United HealthCare</option>
+              <option value="US ASSURE">US ASSURE</option>
+              <option value="Wright Natl Flood Ins Co">Wright Natl Flood Ins Co</option>
             </select>
           </div>
 
@@ -79,7 +113,10 @@
         <li
           v-for="(result, index) in uploadResults"
           :key="index"
-          :class="{ 'upload-success': result.status === 'success', 'upload-failed': result.status === 'failed' }"
+          :class="{
+            'upload-success': result.status === 'success',
+            'upload-failed': result.status === 'failed',
+          }"
         >
           {{ result.fileName }}: {{ result.message }}
         </li>
@@ -89,7 +126,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios'
 
 export default {
   data() {
@@ -100,76 +137,67 @@ export default {
       uploadResponse: null,
       uploadResults: [],
       uploadProgress: {},
-    };
+    }
   },
   methods: {
     handleFileSelect(event) {
-      const files = Array.from(event.target.files);
-      this.selectedFiles = files;
+      const files = Array.from(event.target.files)
+      this.selectedFiles = files
       this.fileConfigs = files.map((file) => ({
         file,
-        folder: "",
-        company: "",
-      }));
+        folder: '',
+        company: '',
+      }))
     },
     handleFolderChange(index) {
-      const folder = this.fileConfigs[index].folder;
-      if (folder !== "MVR" && folder !== "Company Statements") {
-        this.fileConfigs[index].company = "";
+      const folder = this.fileConfigs[index].folder
+      if (folder !== 'MVR' && folder !== 'Company Statements') {
+        this.fileConfigs[index].company = ''
       }
     },
     async uploadFiles() {
-      this.uploading = true;
-      this.uploadResponse = null;
-      this.uploadResults = [];
+      this.uploading = true
+      this.uploadResponse = null
+      this.uploadResults = []
 
       for (let i = 0; i < this.fileConfigs.length; i++) {
-        const config = this.fileConfigs[i];
-        const formData = new FormData();
-        formData.append("file", config.file);
-        formData.append("folder", config.folder);
-        formData.append("company", config.company);
+        const config = this.fileConfigs[i]
+        const formData = new FormData()
+        formData.append('file', config.file)
+        formData.append('folder', config.folder)
+        formData.append('company', config.company)
 
         try {
-          const response = await axios.post(
-            "https://dev.rocox.co/api/upload_files",
-            formData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-              onUploadProgress: (progressEvent) => {
-                const percentComplete = Math.round(
-                  (progressEvent.loaded * 100) / progressEvent.total
-                );
-                this.uploadProgress[config.file.name] = percentComplete;
-              },
-            }
-          );
+          const response = await axios.post('https://dev.rocox.co/api/upload_files', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            onUploadProgress: (progressEvent) => {
+              const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              this.uploadProgress[config.file.name] = percentComplete
+            },
+          })
 
           this.uploadResults.push({
             fileName: config.file.name,
-            status: "success",
-            message: "Uploaded successfully",
-          });
+            status: 'success',
+            message: 'Uploaded successfully',
+          })
         } catch (error) {
-          console.error(
-            `Error uploading file '${config.file.name}':`,
-            error.message
-          );
+          console.error(`Error uploading file '${config.file.name}':`, error.message)
           this.uploadResults.push({
             fileName: config.file.name,
-            status: "failed",
-            message: "Upload failed",
-          });
+            status: 'failed',
+            message: 'Upload failed',
+          })
         }
       }
 
-      this.uploadResponse = "File upload process completed.";
-      this.uploading = false;
+      this.uploadResponse = 'File upload process completed.'
+      this.uploading = false
     },
   },
-};
+}
 </script>
 
 <style scoped>

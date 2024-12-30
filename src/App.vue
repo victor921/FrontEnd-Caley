@@ -6,22 +6,17 @@ import { useUserStore } from "@/stores/userStore";
 const router = useRouter();
 const userStore = useUserStore();
 
-// Your existing variables
 const clientId = "91719351588-ljjoae9ggl3i7n0jftrso8sbbn43uckf.apps.googleusercontent.com";
 const userInfo = ref(null);
 const isSigningOut = ref(false);
 const isSigningIn = ref(false);
 const showPopover = ref(false);
-
-// New state to control popup
 const showSignInPopup = ref(false);
 
-// Toggle for the existing popover (profile icon)
 const togglePopover = () => {
   showPopover.value = !showPopover.value;
 };
 
-// Load user from localStorage if token hasn't expired
 const loadUserFromStorage = () => {
   const storedUserInfo = localStorage.getItem("userInfo");
   if (storedUserInfo) {
@@ -32,31 +27,27 @@ const loadUserFromStorage = () => {
         userInfo.value = user;
         userStore.setUser(userInfo.value);
       } else {
-        console.warn("Token expired. Clearing user data.");
         localStorage.removeItem("userInfo");
       }
     } catch (error) {
-      console.error("Error parsing stored user info:", error);
       localStorage.removeItem("userInfo");
     }
   }
 };
 
-// Ensure Google script is loaded before initializing
 const ensureGoogleScriptLoaded = () => {
   return new Promise((resolve) => {
     const checkGoogle = () => {
       if (window.google && window.google.accounts) {
         resolve();
       } else {
-        setTimeout(checkGoogle, 100); // Wait and try again
+        setTimeout(checkGoogle, 100);
       }
     };
     checkGoogle();
   });
 };
 
-// Initialize Google Sign-In
 const initializeGoogleSignIn = () => {
   if (window.google) {
     window.google.accounts.id.initialize({
@@ -72,12 +63,10 @@ const initializeGoogleSignIn = () => {
         text: "signin_with",
       }
     );
-    // This prompts a one-tap sign in if available
     window.google.accounts.id.prompt();
   }
 };
 
-// Handle Google Credential Response
 const handleCredentialResponse = async (response) => {
   try {
     isSigningIn.value = true;
@@ -91,7 +80,6 @@ const handleCredentialResponse = async (response) => {
     );
     const user = JSON.parse(jsonPayload);
 
-    // Add token expiration (example: token valid for 1 hour)
     const tokenExpiration = new Date();
     tokenExpiration.setSeconds(tokenExpiration.getSeconds() + 3600);
 
@@ -100,17 +88,14 @@ const handleCredentialResponse = async (response) => {
     localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
     userStore.setUser(userInfo.value);
 
-    // If signing in from the popup, hide the popup
     showSignInPopup.value = false;
   } catch (error) {
-    console.error("Error decoding user info:", error);
     alert("An error occurred during sign-in. Please try again.");
   } finally {
     isSigningIn.value = false;
   }
 };
 
-// Sign Out
 const signOut = async () => {
   isSigningOut.value = true;
   setTimeout(() => {
@@ -119,11 +104,10 @@ const signOut = async () => {
     userStore.clearUser();
     isSigningOut.value = false;
     localStorage.removeItem("userInfo");
-    window.location.reload(); // Refresh the page on sign out
+    window.location.reload();
   }, 2000);
 };
 
-// Prevent navigation if user is not signed in (for nav clicks)
 const handleNavigate = (path) => {
   if (!userInfo.value) {
     showSignInPopup.value = true;
@@ -132,7 +116,6 @@ const handleNavigate = (path) => {
   }
 };
 
-// Lifecycle
 onMounted(async () => {
   loadUserFromStorage();
   await ensureGoogleScriptLoaded();
@@ -142,14 +125,11 @@ onMounted(async () => {
 
 <template>
   <div id="app">
-    <!-- Sidebar Navigation -->
+    <!-- Sidebar -->
     <aside class="sidebar">
-      <!-- Brand Section -->
       <div class="brand-section">
         <img alt="Logo" class="logo" src="@/assets/logo2.png" />
       </div>
-
-      <!-- Navigation Menu -->
       <nav class="menu">
         <div class="menu-item" @click="handleNavigate('/')">
           <img src="@/assets/icons/home.svg" alt="Dashboard" />
@@ -164,16 +144,12 @@ onMounted(async () => {
           <span>Upload Files</span>
         </div>
       </nav>
-
-      <!-- Sign-In Container at bottom of sidebar -->
       <div class="signin-container">
-        <!-- If the user is not signed in or is in sign-out process, show sign-in button -->
         <div v-if="!userInfo && !isSigningOut" class="google-signin">
           <h3>Please sign in</h3>
-          <div class="g_id_signin" data-type="standard" data-size="large"></div>
-          <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
+          <div class="g_id_signin"></div>
+          <p v-if="isSigningIn" class="loading-message">Signing you in...</p>
         </div>
-        <!-- If user is signed in, show a profile icon (or sign-out button, etc.) -->
         <div v-else-if="userInfo">
           <div class="profile-icon-container" @click="togglePopover">
             <img
@@ -182,7 +158,6 @@ onMounted(async () => {
               alt="User Avatar"
             />
           </div>
-          <!-- Popover with Logout Option -->
           <div v-if="showPopover" class="popover">
             <p class="user-name">{{ userInfo.email }}</p>
             <button @click="signOut" class="button signout-button">Sign Out</button>
@@ -192,16 +167,11 @@ onMounted(async () => {
     </aside>
 
     <!-- Main Content -->
-    <!-- If user is signed in, show the actual pages (RouterView). If not, block access. -->
-    <main class="main-content" v-if="userInfo">
-      <RouterView />
+    <main class="main-content">
+      <keep-alive>
+        <RouterView />
+      </keep-alive>
     </main>
-
-    <div v-else class="locked-overlay">
-      <h2>Access Restricted</h2>
-      <p>Please sign in to access the dashboard.</p>
-      <!-- You can optionally place the Google Sign-In button here as well -->
-    </div>
 
     <!-- Sign Out Animation -->
     <div v-if="isSigningOut">
@@ -213,7 +183,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Popup that appears if user tries to navigate but isn't signed in -->
+    <!-- Popup for sign-in -->
     <transition name="fade">
       <div
         v-if="showSignInPopup && !userInfo"
@@ -222,10 +192,8 @@ onMounted(async () => {
       >
         <div class="popup">
           <h2>Please sign in to continue</h2>
-          <p>You must be signed in to access this section.</p>
-          <!-- The Google Sign-In button again or some instructions -->
-          <div class="g_id_signin" data-type="standard" data-size="large"></div>
-          <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
+          <div class="g_id_signin"></div>
+          <p v-if="isSigningIn" class="loading-message">Signing you in...</p>
         </div>
       </div>
     </transition>
@@ -243,7 +211,7 @@ onMounted(async () => {
 /* Sidebar */
 .sidebar {
   width: 300px;
-  background-color: #f9fafc;
+  background-color: #ffffff;
   display: flex;
   flex-direction: column;
   padding: 1.5rem 1rem;

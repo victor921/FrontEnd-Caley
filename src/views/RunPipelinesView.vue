@@ -1,6 +1,5 @@
 <template>
   <div class="container">
-
     <div class="row">
       <!-- Column 1: Available Files -->
       <div class="column">
@@ -22,7 +21,7 @@
               <ul v-if="files.length > 0" class="file-list">
                 <li v-for="(fileObj, index) in files" :key="index" class="file-item">
                   <input type="checkbox" v-model="selectedFiles" :value="fileObj" />
-                  {{ getFilename(fileObj.path) }}
+                  <span class="preserve-spaces">{{ fileObj.fileName }}</span>
                   <span v-if="fileObj.folder || fileObj.company">
                     ({{ fileObj.folder }}{{ fileObj.company }})
                   </span>
@@ -48,44 +47,42 @@
         </div>
 
         <!-- Pipeline Trigger Card -->
-<!-- Pipeline Trigger Card -->
-<div class="card">
-  <h2 class="card-header">Trigger Process</h2>
-  <div class="card-content">
-    <p class="pipeline-instruction">Select one or more options to execute the pipelines:</p>
-    <div class="checkbox-group">
-      <label class="checkbox-item">
-        <input type="checkbox" v-model="pipelines.runFiles" />
-        Run Files
-      </label>
-      <label class="checkbox-item">
-        <input type="checkbox" v-model="pipelines.updateDatabase" />
-        Update Database
-      </label>
-      <label class="checkbox-item">
-        <input type="checkbox" v-model="pipelines.binderVerification" />
-        Run Binder Verification (Under Development)
-      </label>
-    </div>
-    <button
-      @click="runSelectedPipelines"
-      :disabled="!isAnyPipelineSelected || loadingPipelines"
-      class="button run-button"
-    >
-      {{ loadingPipelines ? 'Processing...' : 'Execute Selected Process' }}
-    </button>
-    <p v-if="errorPipelines" class="error">{{ errorPipelines }}</p>
-    <p v-if="responsePipelines" class="response">{{ responsePipelines }}</p>
-  </div>
-</div>
+        <div class="card">
+          <h2 class="card-header">Trigger Process</h2>
+          <div class="card-content">
+            <p class="pipeline-instruction">Select one or more options to execute the pipelines:</p>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" v-model="pipelines.runFiles" />
+                Run Files
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" v-model="pipelines.updateDatabase" />
+                Update Database
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" v-model="pipelines.binderVerification" />
+                Run Binder Verification (Under Development)
+              </label>
+            </div>
+            <button
+              @click="runSelectedPipelines"
+              :disabled="!isAnyPipelineSelected || loadingPipelines"
+              class="button run-button"
+            >
+              {{ loadingPipelines ? 'Processing...' : 'Execute Selected Process' }}
+            </button>
+            <p v-if="errorPipelines" class="error">{{ errorPipelines }}</p>
+            <p v-if="responsePipelines" class="response">{{ responsePipelines }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-
 <script>
-import axios from "axios";
+import axios from 'axios'
 
 export default {
   data() {
@@ -96,8 +93,6 @@ export default {
       responseFiles: null,
       errorFiles: null,
       loadingFiles: false,
-
-      // files will now store an array of objects: [{ path, folder, company }, ...]
       files: [],
       selectedFiles: [],
       selectedDate: this.getCurrentDateTime(),
@@ -106,155 +101,121 @@ export default {
         updateDatabase: false,
       },
       selectAll: false,
-    };
+    }
   },
   computed: {
     isAnyPipelineSelected() {
-      return this.pipelines.runFiles || this.pipelines.updateDatabase;
+      return this.pipelines.runFiles || this.pipelines.updateDatabase
     },
   },
   methods: {
-    // Returns today's date in YYYY-MM-DD format
     getCurrentDateTime() {
-      const now = new Date();
-      return now.toISOString().split("T")[0];
+      const now = new Date()
+      return now.toISOString().split('T')[0]
     },
 
-    // Convert from YYYY-MM-DD to the pipeline's desired format
     formatDateForPipeline(date) {
-      const currentDate = new Date(date);
-      const isoString = currentDate.toISOString(); // e.g. "2023-09-08T15:47:05.000Z"
-      const [datePart, timePart] = isoString.split("T");
-      // For example, "2023-09-08T15:47:05.000Z"
-      // might become "2023-09-08T15:47:05.0001Z" or similar
-      const formattedTime = timePart.replace("Z", "1Z");
-      return `${datePart}T${formattedTime}`;
+      const currentDate = new Date(date)
+      const isoString = currentDate.toISOString()
+      const [datePart, timePart] = isoString.split('T')
+      const formattedTime = timePart.replace('Z', '1Z')
+      return `${datePart}T${formattedTime}`
     },
 
-    // Fetch file paths from the API, parse them into objects
     async fetchFiles() {
-      this.loadingFiles = true;
-      this.errorFiles = null;
+      this.loadingFiles = true
+      this.errorFiles = null
       try {
         const response = await axios.get("https://dev.rocox.co/api/fetch_files");
-        // The backend returns an array or possibly a string.
-        // If it's an array, we can store it directly; if it's a single string, we might need to split it.
-        // Let's assume it's an array of paths:
-        let filePaths = response.data;
-        if (typeof filePaths === "string") {
-          // If it's a string with comma-separated paths
-          filePaths = filePaths.split(",").map((s) => s.trim());
+
+        // Ensure response is an array
+        if (!Array.isArray(response.data)) {
+          throw new Error("Expected an array from the backend, but got something else.");
         }
 
-        // Convert each path into an object with { path, folder, company }
-        this.files = filePaths.map((path) => {
-          // Example path:
-          // /caley-operations-dev/input_files/Company Statements/Aetna Hlth Inc FL Corp/AetnaOct.xls
-          const parts = path.split("/");
-          // ["", "caley-operations-dev", "input_files", "Company Statements", "Aetna Hlth Inc FL Corp", "AetnaOct.xls"]
-
-          // The file name is the last element
-          const fileName = parts[parts.length - 1] || "";
-          // The company is the second-to-last element
-          let companyName = parts.length > 1 ? parts[parts.length - 2] : "";
-          // The folder is the third-to-last element (like "Company Statements" or "MVR")
-          let folderName =
-            parts.length > 2 ? parts[parts.length - 3] : "";
-
-          // Override folderName if the path contains "Services & Deductions"
-          if (path.includes("Services & Deductions")) {
-            companyName = ""
-            folderName = "Services & Deductions";
+        // Map the file paths into objects without altering spaces
+        this.files = response.data.map((path) => {
+          const parts = path.split('/');
+          const fileName = parts.pop(); // Extract the file name exactly as is
+          const companyName = parts.length > 1 ? parts.pop() : ''; // Extract company name if available
+          let folderName = parts.length > 2 ? parts.pop() : '';
+          if (path.includes('Services & Deductions')) {
+            folderName = 'Services & Deductions';
           } else {
-            folderName += " => "
+            folderName += ' => ';
           }
-
           return {
             path,
             folder: folderName,
             company: companyName,
+            fileName, // Include the exact file name as its own property
           };
         });
 
-        this.selectAll = false;
-        this.selectedFiles = [];
+        this.selectAll = false
+        this.selectedFiles = []
       } catch (error) {
-        console.error("Error fetching files:", error.message);
-        this.errorFiles = "Failed to fetch files.";
+        console.error("Error fetching files:", error.message)
+        this.errorFiles = "Failed to fetch files."
       } finally {
-        this.loadingFiles = false;
+        this.loadingFiles = false
       }
     },
 
-    // Toggle all or none of the checkboxes
     toggleSelectAll() {
       if (this.selectAll) {
-        // select all file objects
-        this.selectedFiles = [...this.files];
+        this.selectedFiles = [...this.files]
       } else {
-        this.selectedFiles = [];
+        this.selectedFiles = []
       }
     },
 
-    // Extract just the filename from the path
-    getFilename(fullPath) {
-      // Example:
-      // /caley-operations-dev/input_files/Company Statements/.../AetnaOct.xls
-      // => "AetnaOct.xls"
-      return fullPath.substring(fullPath.lastIndexOf("/") + 1);
-    },
-
-    // Pipeline Execution
     async runSelectedPipelines() {
-      this.responsePipelines = null;
-      this.errorPipelines = null;
-      this.loadingPipelines = true;
+      this.responsePipelines = null
+      this.errorPipelines = null
+      this.loadingPipelines = true
       try {
-        const formattedDate = this.formatDateForPipeline(this.selectedDate);
+        const formattedDate = this.formatDateForPipeline(this.selectedDate)
 
-        // If user checked 'Run Files'
         if (this.pipelines.runFiles) {
           const payload = {
-            // We only send the file paths
             paths_to_process: this.selectedFiles.map((f) => f.path),
             runDate: formattedDate,
-          };
-          await this.executePipeline("run_files", payload);
+          }
+          await this.executePipeline('run_files', payload)
         }
 
-        // If user checked 'Update Database'
         if (this.pipelines.updateDatabase) {
           const payload = {
             paths_to_process: [],
-            runDate: "",
-          };
-          await this.executePipeline("update_sql", payload);
+            runDate: '',
+          }
+          await this.executePipeline('update_sql', payload)
         }
 
-        this.responsePipelines = "Selected pipelines executed successfully!";
+        this.responsePipelines = 'Selected pipelines executed successfully!'
       } catch (error) {
-        console.error("Pipeline execution failed:", error.message);
-        this.errorPipelines = "Failed to execute pipelines.";
+        console.error('Pipeline execution failed:', error.message)
+        this.errorPipelines = 'Failed to execute pipelines.'
       } finally {
-        this.loadingPipelines = false;
+        this.loadingPipelines = false
       }
     },
 
-    // Helper to call the pipeline endpoint
     async executePipeline(pipelineName, payload) {
-      console.log("Executing", pipelineName, "with", payload);
+      console.log('Executing', pipelineName, 'with', payload)
       await axios.post(
         `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${pipelineName}`,
         payload,
         {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
-        }
-      );
+        },
+      )
     },
   },
-};
+}
 </script>
 
 <style scoped>
@@ -414,5 +375,9 @@ export default {
 
 .checkbox-item input {
   margin-right: 8px;
+}
+
+.preserve-spaces {
+  white-space: pre; /* Preserve spaces exactly as they are */
 }
 </style>
