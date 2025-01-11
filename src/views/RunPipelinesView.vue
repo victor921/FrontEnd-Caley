@@ -1,80 +1,176 @@
 <template>
-  <div class="container">
-    <div class="row">
-      <!-- Column 1: Available Files -->
-      <div class="column">
-        <div class="card">
-          <h2 class="card-header">Available Files</h2>
-          <div class="card-content">
-            <div class="file-controls">
-              <button @click="fetchFiles" :disabled="loadingFiles" class="refresh-button">
-                {{ loadingFiles ? 'Refreshing...' : 'Refresh Files' }}
-              </button>
-              <label class="select-all">
-                <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
-                Select All
-              </label>
-            </div>
-            <div class="file-list-container">
-              <p v-if="loadingFiles" class="loading-text">Refreshing file list...</p>
-              <p v-if="errorFiles" class="error">{{ errorFiles }}</p>
-              <ul v-if="files.length > 0" class="file-list">
-                <li v-for="(fileObj, index) in files" :key="index" class="file-item">
-                  <input type="checkbox" v-model="selectedFiles" :value="fileObj" />
-                  <span class="preserve-spaces">{{ fileObj.fileName }}</span>
-                  <span v-if="fileObj.folder || fileObj.company">
-                    ({{ fileObj.folder }}{{ fileObj.company }})
-                  </span>
-                </li>
-              </ul>
-              <p v-if="files.length === 0 && !loadingFiles && !errorFiles" class="no-files">
-                No files available.
-              </p>
-            </div>
+  <div class="page-container">
+    <div class="header">
+      <h1>Data Pipeline Runner</h1>
+      <p class="subtitle">
+        Easily manage and run data pipelines by selecting files or performing updates.
+      </p>
+    </div>
+
+    <div class="content-grid">
+      <!-- File Management -->
+      <div class="card file-management">
+        <div class="card-header">
+          <h2>File Management</h2>
+          <p class="card-description">
+            View and refresh your files below. Select multiple files to run them in the pipeline.
+          </p>
+        </div>
+        <div class="card-body">
+          <div class="controls">
+            <button
+              @click="fetchFiles"
+              :disabled="loadingFiles"
+              class="btn action-btn refresh"
+            >
+              {{ loadingFiles ? 'Refreshing...' : 'Refresh Files' }}
+            </button>
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
+              <span>Select All</span>
+            </label>
+          </div>
+
+          <div class="file-list-container">
+            <p v-if="loadingFiles" class="info-text">
+              Refreshing file list...
+            </p>
+            <p v-if="errorFiles" class="error-text">{{ errorFiles }}</p>
+
+            <!-- Show paginated files instead of all files at once -->
+            <ul v-if="paginatedFiles.length > 0" class="file-list">
+              <li
+                v-for="(fileObj, index) in paginatedFiles"
+                :key="index"
+                class="file-item"
+              >
+                <div class="file-info">
+                  <!-- Use "title" to show the full file name on hover -->
+                  <label
+                    class="checkbox-label"
+                    :title="fileObj.fileName"
+                  >
+                    <input
+                      type="checkbox"
+                      v-model="selectedFiles"
+                      :value="fileObj"
+                    />
+                    <!-- Truncated file name -->
+                    <span class="file-name preserve-spaces">
+                      {{ fileObj.fileName }}
+                    </span>
+                  </label>
+                  <!-- Truncated folder => company path with smaller font -->
+                  <p
+                    class="file-path"
+                    :title="fileObj.folder + fileObj.company"
+                  >
+                    {{ fileObj.folder }}{{ fileObj.company }}
+                  </p>
+                </div>
+                <button
+                  @click="deleteFile(fileObj)"
+                  class="btn action-btn danger"
+                >
+                  Delete
+                </button>
+              </li>
+            </ul>
+
+            <p
+              v-else-if="files.length > 0 && !loadingFiles"
+              class="info-text"
+            >
+              No files on this page.
+            </p>
+            <p
+              v-if="files.length === 0 && !loadingFiles && !errorFiles"
+              class="info-text"
+            >
+              No files available.
+            </p>
+          </div>
+
+          <!-- Pagination Controls -->
+          <div v-if="totalPages > 1" class="pagination-controls">
+            <button
+              class="btn page-btn"
+              :disabled="currentPage === 1"
+              @click="currentPage--"
+            >
+              Prev
+            </button>
+            <span class="page-info">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
+            <button
+              class="btn page-btn"
+              :disabled="currentPage === totalPages"
+              @click="currentPage++"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Column 2: Other Cards -->
-      <div class="column">
-        <!-- Date Picker Card -->
-        <div class="card">
-          <h2 class="card-header">Select Date</h2>
-          <div class="card-content">
-            <label for="date-picker" class="date-label">Pick a date:</label>
-            <input id="date-picker" type="date" v-model="selectedDate" class="date-picker" />
-          </div>
+      <!-- Trigger Process -->
+      <div class="card process-runner">
+        <div class="card-header">
+          <h2>Trigger Process</h2>
+          <p class="card-description">
+            Choose which actions to run on the selected files or system.
+          </p>
         </div>
+        <div class="card-body">
+          <p class="info-text bold">
+            Select processes to execute:
+          </p>
 
-        <!-- Pipeline Trigger Card -->
-        <div class="card">
-          <h2 class="card-header">Trigger Process</h2>
-          <div class="card-content">
-            <p class="pipeline-instruction">Select one or more options to execute the pipelines:</p>
-            <div class="checkbox-group">
-              <label class="checkbox-item">
+          <div class="process-options">
+            <!-- Run Files Toggle + Date Picker side by side -->
+            <div class="run-files-date">
+              <label class="checkbox-label">
                 <input type="checkbox" v-model="pipelines.runFiles" />
-                Run Files
+                <span>Run Files</span>
               </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="pipelines.updateDatabase" />
-                Update Database
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="pipelines.binderVerification" />
-                Run Binder Verification (Under Development)
-              </label>
+
+              <div class="date-control">
+                <label for="date-picker">Date</label>
+                <input
+                  id="date-picker"
+                  type="date"
+                  v-model="selectedDate"
+                  class="date-picker"
+                />
+              </div>
             </div>
-            <button
-              @click="runSelectedPipelines"
-              :disabled="!isAnyPipelineSelected || loadingPipelines"
-              class="button run-button"
-            >
-              {{ loadingPipelines ? 'Processing...' : 'Execute Selected Process' }}
-            </button>
-            <p v-if="errorPipelines" class="error">{{ errorPipelines }}</p>
-            <p v-if="responsePipelines" class="response">{{ responsePipelines }}</p>
+
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="pipelines.updateDatabase" />
+              <span>Update Database</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="pipelines.binderVerification" />
+              <span>Binder Verification (Under Dev)</span>
+            </label>
           </div>
+
+          <button
+            @click="runSelectedPipelines"
+            :disabled="!isAnyPipelineSelected || loadingPipelines"
+            class="btn action-btn primary wide"
+          >
+            {{ loadingPipelines ? 'Processing...' : 'Execute Selected Process' }}
+          </button>
+
+          <p v-if="errorPipelines" class="error-text">
+            {{ errorPipelines }}
+          </p>
+          <p v-if="responsePipelines" class="success-text">
+            {{ responsePipelines }}
+          </p>
         </div>
       </div>
     </div>
@@ -87,33 +183,60 @@ import axios from 'axios'
 export default {
   data() {
     return {
+      // Pipeline Execution
       responsePipelines: null,
       errorPipelines: null,
       loadingPipelines: false,
+
+      // File Management
       responseFiles: null,
       errorFiles: null,
       loadingFiles: false,
       files: [],
       selectedFiles: [],
-      selectedDate: this.getCurrentDateTime(),
+      selectAll: false,
+
+      // Pagination
+      currentPage: 1,
+      itemsPerPage: 4,
+
+      // Date & Pipeline Options
+      selectedDate: this.getCurrentDate(),
       pipelines: {
         runFiles: false,
         updateDatabase: false,
+        binderVerification: false,
       },
-      selectAll: false,
+
+      // Additional error for file deletion
+      errorDelete: null,
     }
   },
   computed: {
     isAnyPipelineSelected() {
-      return this.pipelines.runFiles || this.pipelines.updateDatabase
+      return (
+        this.pipelines.runFiles ||
+        this.pipelines.updateDatabase ||
+        this.pipelines.binderVerification
+      )
+    },
+    totalPages() {
+      return Math.ceil(this.files.length / this.itemsPerPage) || 0
+    },
+    paginatedFiles() {
+      const startIndex = (this.currentPage - 1) * this.itemsPerPage
+      const endIndex = startIndex + this.itemsPerPage
+      return this.files.slice(startIndex, endIndex)
     },
   },
   methods: {
-    getCurrentDateTime() {
+    /* Format date as YYYY-MM-DD */
+    getCurrentDate() {
       const now = new Date()
       return now.toISOString().split('T')[0]
     },
 
+    /* Convert user-selected date into pipeline-ready ISO format */
     formatDateForPipeline(date) {
       const currentDate = new Date(date)
       const isoString = currentDate.toISOString()
@@ -122,36 +245,42 @@ export default {
       return `${datePart}T${formattedTime}`
     },
 
+    /* Fetch list of files from server */
     async fetchFiles() {
       this.loadingFiles = true
       this.errorFiles = null
-      try {
-        const response = await axios.get("https://dev.rocox.co/api/fetch_files");
+      this.currentPage = 1 // Reset to page 1 on fetch
 
-        // Ensure response is an array
+      try {
+        const response = await axios.get("https://dev.rocox.co/api/fetch_files")
         if (!Array.isArray(response.data)) {
-          throw new Error("Expected an array from the backend, but got something else.");
+          throw new Error("Expected an array from the backend, but got something else.")
         }
 
-        // Map the file paths into objects without altering spaces
         this.files = response.data.map((path) => {
-          const parts = path.split('/');
-          const fileName = parts.pop(); // Extract the file name exactly as is
-          const companyName = parts.length > 1 ? parts.pop() : ''; // Extract company name if available
-          let folderName = parts.length > 2 ? parts.pop() : '';
-          if (path.includes('Services & Deductions')) {
-            folderName = 'Services & Deductions';
+          const parts = path.split('/')
+          const fileName = parts.pop()
+          let companyName = parts.length > 0 ? parts.pop() : ''
+          let folderName = parts.length > 0 ? parts.pop() : ''
+
+          // If "Services & Deductions", just show that
+          if (path.includes('Deduction & Services')) {
+            folderName = 'Deduction & Services'
+            companyName = '' // clear out company
           } else {
-            folderName += ' => ';
+            // otherwise, build "folder => " and keep companyName
+            folderName = folderName ? folderName + ' => ' : ''
           }
+
           return {
             path,
             folder: folderName,
             company: companyName,
-            fileName, // Include the exact file name as its own property
-          };
-        });
+            fileName,
+          }
+        })
 
+        // Reset selection
         this.selectAll = false
         this.selectedFiles = []
       } catch (error) {
@@ -162,6 +291,7 @@ export default {
       }
     },
 
+    /* Check/uncheck all files */
     toggleSelectAll() {
       if (this.selectAll) {
         this.selectedFiles = [...this.files]
@@ -170,10 +300,12 @@ export default {
       }
     },
 
+    /* Run selected pipelines */
     async runSelectedPipelines() {
       this.responsePipelines = null
       this.errorPipelines = null
       this.loadingPipelines = true
+
       try {
         const formattedDate = this.formatDateForPipeline(this.selectedDate)
 
@@ -193,6 +325,8 @@ export default {
           await this.executePipeline('update_sql', payload)
         }
 
+        // Binder Verification (Under Development)...
+
         this.responsePipelines = 'Selected pipelines executed successfully!'
       } catch (error) {
         console.error('Pipeline execution failed:', error.message)
@@ -202,8 +336,9 @@ export default {
       }
     },
 
+    /* Helper: execute a pipeline by name with given payload */
     async executePipeline(pipelineName, payload) {
-      console.log('Executing', pipelineName, 'with', payload)
+      console.log(`Executing ${pipelineName} with:`, payload)
       await axios.post(
         `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${pipelineName}`,
         payload,
@@ -211,173 +346,275 @@ export default {
           headers: {
             'Content-Type': 'application/json',
           },
-        },
+        }
       )
+    },
+
+    /* Delete a file from Azure, then refresh the list */
+    async deleteFile(fileObj) {
+      try {
+        // If folder is "Services & Deductions", pass that as is
+        // otherwise it might be "folder => "
+        let folder = fileObj.folder.includes('Services & Deductions')
+          ? 'Services & Deductions'
+          : fileObj.folder.replace(' => ', '').trim()
+
+        const payload = {
+          folder,
+          filePath: fileObj.path.replace('/caley-operations-dev/', ''),
+        }
+
+        await axios.post("https://dev.rocox.co/api/delete_files", payload, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        this.fetchFiles()
+      } catch (error) {
+        console.error("Error deleting file:", error.message)
+        this.errorDelete = `Failed to delete file: ${fileObj.fileName}`
+      }
     },
   },
 }
 </script>
 
-<style scoped>
-.container {
+<style>
+:root {
+  --bg-color: #f3f4f6;         /* Light background */
+  --card-bg: #ffffff;          /* White for cards */
+  --text-color: #000000;       /* Black text */
+  --accent-color: #3f94b5;     /* Accent color for primary actions */
+  --danger-color: #dc3545;     /* Red for Delete */
+  --success-color: #28a745;    /* Green for Refresh */
+  --border-color: #ececec;     /* Light gray for borders */
+  --shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+/* Overall Container */
+.page-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
-  font-family: Arial, sans-serif;
-  color: #333;
+  padding: 2rem;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  border-radius: 8px;
 }
 
+/* Header */
 .header {
   text-align: center;
-  color: #007bff;
-  font-size: 28px;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
+}
+.header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+.subtitle {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: #555555;
 }
 
-/* Row Layout */
-.row {
-  display: flex;
-  gap: 20px;
+/* Content Grid */
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+@media(max-width: 900px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Column Layout */
-.column {
-  flex: 1;
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
-
-/* Card Style */
-.card {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+/* Fix the card width so it does not expand horizontally */
+.file-management {
+  max-width: 500px;
 }
-
 .card-header {
-  font-size: 20px;
-  background-color: #007bff;
-  color: #fff;
-  padding: 10px 20px;
+  padding: 1.2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.card-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.card-description {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: #666666;
+}
+.card-body {
+  padding: 1.2rem;
+  flex: 1;
 }
 
-.card-content {
-  padding: 20px;
-}
-
-.file-controls {
+/* Controls & Checkboxes */
+.controls,
+.process-options {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 1rem;
+}
+.file-management .controls {
+  flex-direction: row;
   align-items: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
-.select-all {
-  font-size: 14px;
-  color: #333;
-}
-
+/* File List */
 .file-list-container {
-  margin-top: 10px;
+  margin-top: 1rem;
 }
-
 .file-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
-
 .file-item {
-  background-color: #fff;
-  margin: 5px 0;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-}
-
-.date-label {
-  font-size: 16px;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.date-picker {
-  display: block;
-  padding: 8px;
-  font-size: 14px;
-  margin-top: 10px;
   width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
+  background-color: #fafafa;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.8rem;
+  margin-bottom: 0.8rem;
 
-.button {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-top: 20px;
-  transition: background-color 0.3s;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
 }
-
-.button:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-
-.button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.refresh-button {
-  background-color: #28a745;
-  color: #fff;
-  padding: 8px 16px;
-}
-
-.error {
-  color: red;
-}
-
-.response {
-  color: green;
-}
-
-.loading-text {
-  font-size: 14px;
-  color: #555;
-}
-
-.no-files {
-  font-size: 14px;
-  color: #777;
-}
-
-.checkbox-group {
+.file-info {
+  flex: 1;
+  min-width: 0; /* Required for text-overflow in a flex item */
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 0.3rem;
+}
+.file-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.file-path {
+  font-size: 0.8rem;
+  color: #777777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.checkbox-item {
+/* Pagination Controls */
+.pagination-controls {
   display: flex;
   align-items: center;
-  font-size: 14px;
-  color: #333;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.page-btn {
+  background-color: #777;
+}
+.page-info {
+  font-size: 0.9rem;
 }
 
-.checkbox-item input {
-  margin-right: 8px;
+/* Trigger Process */
+.process-runner .info-text.bold {
+  font-weight: 600;
+}
+.run-files-date {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.date-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+/* Buttons */
+.btn {
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+.btn:disabled {
+  background-color: #aaaaaa;
+  cursor: not-allowed;
+}
+.action-btn.refresh {
+  background-color: var(--success-color);
+}
+.action-btn.danger {
+  background-color: var(--danger-color);
+}
+.action-btn.primary {
+  background-color: var(--accent-color);
+}
+.action-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.wide {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* Status & Text Colors */
+.info-text {
+  font-size: 0.9rem;
+  color: #444444;
+}
+.error-text {
+  color: var(--danger-color);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+.success-text {
+  color: var(--success-color);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+/* Date picker styling */
+.date-picker {
+  font-size: 0.9rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid white;
+  border-radius: 4px;
+  color: white; /* or #000 if you prefer black text */
+  background-color: #999;
+}
+
+/* Preserve exact spacing in file names */
 .preserve-spaces {
-  white-space: pre; /* Preserve spaces exactly as they are */
+  white-space: pre;
 }
 </style>

@@ -17,6 +17,9 @@ const togglePopover = () => {
   showPopover.value = !showPopover.value;
 };
 
+/**
+ * Load any previously stored user info (e.g., from localStorage)
+ */
 const loadUserFromStorage = () => {
   const storedUserInfo = localStorage.getItem("userInfo");
   if (storedUserInfo) {
@@ -30,11 +33,15 @@ const loadUserFromStorage = () => {
         localStorage.removeItem("userInfo");
       }
     } catch (error) {
+      alert(`Error found\n${error}`)
       localStorage.removeItem("userInfo");
     }
   }
 };
 
+/**
+ * Wait until Google's script has fully loaded before we initialize
+ */
 const ensureGoogleScriptLoaded = () => {
   return new Promise((resolve) => {
     const checkGoogle = () => {
@@ -48,6 +55,9 @@ const ensureGoogleScriptLoaded = () => {
   });
 };
 
+/**
+ * Initialize the Google Sign-In button
+ */
 const initializeGoogleSignIn = () => {
   if (window.google) {
     window.google.accounts.id.initialize({
@@ -67,9 +77,13 @@ const initializeGoogleSignIn = () => {
   }
 };
 
+/**
+ * Handle Google credential response
+ */
 const handleCredentialResponse = async (response) => {
   try {
     isSigningIn.value = true;
+    // Decode the JWT token from Google's ID
     const base64Url = response.credential.split(".")[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
     const jsonPayload = decodeURIComponent(
@@ -80,22 +94,27 @@ const handleCredentialResponse = async (response) => {
     );
     const user = JSON.parse(jsonPayload);
 
+    // Example expiration in 1 hour
     const tokenExpiration = new Date();
     tokenExpiration.setSeconds(tokenExpiration.getSeconds() + 3600);
 
     userInfo.value = { ...user, tokenExpiration };
 
+    // Persist user in localStorage
     localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
     userStore.setUser(userInfo.value);
 
     showSignInPopup.value = false;
   } catch (error) {
-    alert("An error occurred during sign-in. Please try again.");
+    alert(`An error occurred during sign-in. Please try again.\n${error}`);
   } finally {
     isSigningIn.value = false;
   }
 };
 
+/**
+ * Sign Out logic
+ */
 const signOut = async () => {
   isSigningOut.value = true;
   setTimeout(() => {
@@ -104,11 +123,16 @@ const signOut = async () => {
     userStore.clearUser();
     isSigningOut.value = false;
     localStorage.removeItem("userInfo");
+    // Refresh or redirect
     window.location.reload();
   }, 2000);
 };
 
+/**
+ * Attempt route navigation
+ */
 const handleNavigate = (path) => {
+  // If not signed in, show popup
   if (!userInfo.value) {
     showSignInPopup.value = true;
   } else {
@@ -125,8 +149,8 @@ onMounted(async () => {
 
 <template>
   <div id="app">
-    <!-- Sidebar -->
-    <aside class="sidebar">
+    <!-- If the user is signed in, show the sidebar and main content -->
+    <aside v-if="userInfo" class="sidebar">
       <div class="brand-section">
         <img alt="Logo" class="logo" src="@/assets/logo2.png" />
       </div>
@@ -144,13 +168,10 @@ onMounted(async () => {
           <span>Upload Files</span>
         </div>
       </nav>
+
       <div class="signin-container">
-        <div v-if="!userInfo && !isSigningOut" class="google-signin">
-          <h3>Please sign in</h3>
-          <div class="g_id_signin"></div>
-          <p v-if="isSigningIn" class="loading-message">Signing you in...</p>
-        </div>
-        <div v-else-if="userInfo">
+        <!-- If user is signed in, show profile or sign out options -->
+        <div v-if="userInfo">
           <div class="profile-icon-container" @click="togglePopover">
             <img
               class="profile-icon"
@@ -160,18 +181,28 @@ onMounted(async () => {
           </div>
           <div v-if="showPopover" class="popover">
             <p class="user-name">{{ userInfo.email }}</p>
-            <button @click="signOut" class="button signout-button">Sign Out</button>
+            <button @click="signOut" class="button signout-button">
+              Sign Out
+            </button>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
+    <main v-if="userInfo" class="main-content">
       <keep-alive>
         <RouterView />
       </keep-alive>
     </main>
+
+    <!-- If NOT signed in, show a locked overlay or sign-in prompt in the sidebar area -->
+    <div v-else class="locked-overlay">
+      <h2>Please sign in first</h2>
+      <div class="google-signin">
+        <div class="g_id_signin"></div>
+        <p v-if="isSigningIn" class="loading-message">Signing you in...</p>
+      </div>
+    </div>
 
     <!-- Sign Out Animation -->
     <div v-if="isSigningOut">
@@ -183,7 +214,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Popup for sign-in -->
+    <!-- Popup for sign-in if user tries to navigate -->
     <transition name="fade">
       <div
         v-if="showSignInPopup && !userInfo"
@@ -281,16 +312,21 @@ onMounted(async () => {
   padding: 1rem;
 }
 
-/* Overlay when user is not signed in */
+/* Overlay / locked area if user is not signed in */
 .locked-overlay {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #666666;
+  background-color: #f5f5f5;
+  color:#000000;
   padding: 2rem;
   text-align: center;
   justify-content: center;
   align-items: center;
+}
+
+.locked-overlay h2 {
+  margin-bottom: 1rem;
 }
 
 /* Google Sign-In Styles */
