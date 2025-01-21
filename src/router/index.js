@@ -33,6 +33,12 @@ const router = createRouter({
       meta: { requiresAuth: true }, // This route requires authentication
     },
     {
+      path: '/runHistory',
+      name: 'runHistory',
+      component: () => import('../views/RunHistory.vue'),
+      meta: { requiresAuth: true }, // This route requires authentication
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/', // Redirect any unmatched route to home
     },
