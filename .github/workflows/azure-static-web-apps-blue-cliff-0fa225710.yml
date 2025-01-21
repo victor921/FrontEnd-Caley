@@ -33,7 +33,7 @@ jobs:
           app_location: "/" # App source code path
           api_location: "api" # Api source code path - optional
           output_location: "dist" # Built app content directory - optional
-          routes_location: "dist/routes.json" # Ensure `routes.json` is included
+          routes_location: "public/" # Ensure `routes.json` is included
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
