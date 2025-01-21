@@ -117,15 +117,24 @@ const handleCredentialResponse = async (response) => {
  */
 const signOut = async () => {
   isSigningOut.value = true;
+
   setTimeout(() => {
+    // Disable auto-select for Google Sign-In
     window.google.accounts.id.disableAutoSelect();
+
+    // Clear user info
     userInfo.value = null;
     userStore.clearUser();
-    isSigningOut.value = false;
+
+    // Remove user data from local storage
     localStorage.removeItem("userInfo");
-    // Refresh or redirect
-    window.location.reload();
-  }, 2000);
+
+    // Stop the signing-out animation
+    isSigningOut.value = false;
+
+    // Redirect to the home screen
+    router.push("/");
+  }, 2000); // Simulate a delay for the signing-out animation
 };
 
 /**
