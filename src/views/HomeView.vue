@@ -17,9 +17,15 @@ const fetchData = async () => {
   loading.value = true;
   errorMessage.value = "";
   try {
+    const queryString = `
+                          SELECT *
+                          FROM PRD.PremiumReport
+                          WHERE addedDate >= '${startDate.value.toISOString()}'
+                          AND addedDate <= '${endDate.value.toISOString()}'
+                        `
+    console.log(queryString)
     const response = await axios.post("https://dev.rocox.co/api/query_db", {
-      startDate: startDate.value.toISOString(),
-      endDate: endDate.value.toISOString(),
+      query: queryString,
     });
     tableData.value = response.data;
   } catch (error) {
