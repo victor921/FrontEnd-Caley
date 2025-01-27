@@ -105,7 +105,7 @@
               </p>
               <p>
                 <strong>Notebook Path:</strong>
-                <span>{{ (output.parameters && output.parameters.notebook_path) ? output.parameters.notebook_path : "N/A" }}</span>
+                <span> {{ (output.parameters && output.parameters.notebook_path) ? output.parameters.notebook_path : "N/A" }}</span>
               </p>
               <p>
                 <strong>Source:</strong> {{ (output.parameters && output.parameters.source) ? output.parameters.source : "N/A" }}
