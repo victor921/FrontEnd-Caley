@@ -1,53 +1,134 @@
 <template>
   <div class="container">
-    <h1>Run History</h1>
+    <h1 class="page-title">Run History</h1>
+
+    <!-- Current Time in EST -->
     <div class="current-datetime">
       Current EST Time: {{ currentDatetime }}
     </div>
-    <ul v-if="formattedFiles.length" class="file-list">
-      <li v-for="(file, index) in formattedFiles" :key="index" class="file-item">
-        <a href="#" @click.prevent="openFileDetails(file.fullPath)" class="file-link">
+
+    <!-- Loading indicator for file list and statuses -->
+    <div v-if="filesLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading run history...</p>
+    </div>
+
+    <!-- Run History List -->
+    <ul v-else-if="formattedFiles.length" class="file-list">
+      <li
+        v-for="(file, index) in formattedFiles"
+        :key="index"
+        class="file-item"
+        :class="{ latest: index === 0 }"
+      >
+        <a
+          href="#"
+          @click.prevent="openFileDetails(file.fullPath)"
+          class="file-link"
+        >
           {{ file.displayName }}
         </a>
+        <!-- The status badge has a background color for RUNNING in the file list -->
+        <span :class="statusBadgeClass(file.status)" class="status-badge">
+          {{ file.status }}
+        </span>
       </li>
     </ul>
     <p v-else class="loading-text">No valid files to display.</p>
 
-    <!-- Modal -->
+    <!-- Modal for Detailed Info -->
     <div v-if="isModalVisible" class="modal-overlay">
       <div class="modal-content">
-        <h2>File Details</h2>
+        <!-- Title with no background color -->
+        <h2 class="modal-title">File Details</h2>
 
         <!-- Status Section -->
         <div class="status-section">
-          <p v-if="status === 'RUNNING'" class="status-running">
-            <span class="spinner"></span> Job is currently running...
+          <!-- No background for RUNNING text in the modal -->
+          <p v-if="status === 'RUNNING'" class="status-running-text">
+            <span class="spinner small-spinner"></span>
+            Job is currently running...
           </p>
-          <p v-else-if="status === 'COMPLETED'" class="status-completed">
+          <p v-else-if="status === 'COMPLETED'" class="status-completed-text">
             <strong>Job completed successfully!</strong>
           </p>
-          <p v-else class="status-unknown">
+          <p v-else-if="status === 'PENDING'" class="status-pending-text">
+            <strong>Job is pending. Please wait...</strong>
+          </p>
+          <p v-else-if="status === 'FAIL'" class="status-fail-text">
+            <strong>Job failed. Please see details below.</strong>
+          </p>
+          <p v-else>
             <strong>Status:</strong> {{ status }}
           </p>
         </div>
 
-        <!-- Results Section -->
-        <div class="modal-body">
-          <ul>
-            <li v-for="(output, index) in selectedFileDetails.RESULT" :key="index" class="output-item">
-              <p><strong>Status:</strong> {{ output.status }}</p>
-              <p v-if="output.error_details"><strong>Error Details:</strong> {{ output.error_details }}</p>
-              <p><strong>Notebook Path:</strong> {{ output.parameters.notebook_path }}</p>
-              <p><strong>Source:</strong> {{ output.parameters.source }}</p>
-              <p>
-                <strong>Run Page:</strong>
-                <a :href="output.run_page_url" target="_blank" class="link-button">View Run</a>
-              </p>
-              <hr v-if="index < selectedFileDetails.RESULT.length - 1" />
-            </li>
-          </ul>
+        <!-- Real-time countdown for RUNNING status -->
+        <div v-if="status === 'RUNNING'" class="update-timer">
+          <p>Page updating in {{ pollingCountdown }}..</p>
         </div>
 
+        <!-- Results Section -->
+        <div class="modal-body">
+          <!-- FAIL scenario with a simple string in RESULT -->
+          <div
+            v-if="status === 'FAIL' && resultIsString"
+            class="fail-details"
+          >
+            <p><strong>Error:</strong> {{ selectedFileDetails.RESULT }}</p>
+            <p v-if="selectedFileDetails.RUN_URL">
+              <strong>Run Page:</strong>
+              <a
+                :href="selectedFileDetails.RUN_URL"
+                target="_blank"
+                class="link-button"
+              >
+                View Run
+              </a>
+            </p>
+          </div>
+
+          <!-- FAIL or other statuses with RESULT as an array -->
+          <ul
+            v-else-if="selectedFileDetails.RESULT && Array.isArray(selectedFileDetails.RESULT) && selectedFileDetails.RESULT.length"
+          >
+            <li
+              v-for="(output, i) in selectedFileDetails.RESULT"
+              :key="i"
+              class="output-item"
+            >
+              <p>
+                <strong>Status:</strong> {{ output.status }}
+              </p>
+              <p v-if="output.error_details">
+                <strong>Error Details:</strong> {{ output.error_details }}
+              </p>
+              <p>
+                <strong>Notebook Path:</strong>
+                <span>{{ (output.parameters && output.parameters.notebook_path) ? output.parameters.notebook_path : "N/A" }}</span>
+              </p>
+              <p>
+                <strong>Source:</strong> {{ (output.parameters && output.parameters.source) ? output.parameters.source : "N/A" }}
+              </p>
+              <p v-if="output.run_page_url">
+                <strong>Run Page:</strong>
+                <a
+                  :href="output.run_page_url"
+                  target="_blank"
+                  class="link-button"
+                >
+                  View Run
+                </a>
+              </p>
+              <hr v-if="i < selectedFileDetails.RESULT.length - 1" />
+            </li>
+          </ul>
+          <p v-else>
+            No output details available.
+          </p>
+        </div>
+
+        <!-- Close Button -->
         <button @click="closeModal" class="close-button">Close</button>
       </div>
     </div>
@@ -58,108 +139,249 @@
 export default {
   data() {
     return {
-      files: [], // Stores raw file data
-      formattedFiles: [], // Stores processed file data with display name and status
-      isModalVisible: false, // Controls modal visibility
-      selectedFileDetails: {}, // Stores details of the selected file (includes STATUS and RESULT)
-      status: "", // Stores the STATUS from the response
-      currentDatetime: "", // Current datetime in EST
+      files: [], // Raw file data
+      formattedFiles: [], // { fullPath, displayName, status }
+      isModalVisible: false, // Modal toggle
+      selectedFileDetails: {}, // Data from the log file
+      status: "", // Current status from the file
+      currentDatetime: "", // Current time in EST
+
+      filesLoading: true, // Show spinner while loading
+
+      // Polling
+      pollingInterval: null, // Interval reference
+      pollingCountdown: 0, // Countdown in seconds for next poll
+      pollIntervalSeconds: 10, // Interval for re-fetch in seconds
     };
+  },
+  computed: {
+    // Check if selectedFileDetails.RESULT is a string for FAIL scenario
+    resultIsString() {
+      return (
+        this.status === "FAIL" &&
+        this.selectedFileDetails.RESULT &&
+        typeof this.selectedFileDetails.RESULT === "string"
+      );
+    },
   },
   methods: {
     async loadFiles() {
+      this.filesLoading = true;
       try {
         const response = await fetch("https://dev.rocox.co/api/fetch_files?folder=logs");
+        if (!response.ok) {
+          throw new Error(`Could not load files. HTTP ${response.status}`);
+        }
+
         const filePaths = await response.json();
 
-        // Process files to extract display names and filter invalid timestamps
-        this.files = filePaths.map((filePath) => {
-          const fullPath = filePath; // Full path of the file
-          const fileName = fullPath.split("/").pop(); // Extract the timestamped file name
-          const timestamp = parseInt(fileName.split(".")[0], 10); // Extract timestamp
+        // Convert each path into { fullPath, displayName, status: "PENDING" }
+        const rawFiles = filePaths
+          .map((fullPath) => {
+            const fileName = fullPath.split("/").pop() || "";
+            const timestamp = parseInt(fileName.split(".")[0], 10);
 
-          // Convert the timestamp to EST
-          let displayName = null;
-          try {
-            const date = new Date(timestamp);
-            if (isNaN(date.getTime())) {
-              throw new Error("Invalid timestamp");
+            let displayName = null;
+            try {
+              const dateObj = new Date(timestamp);
+              if (isNaN(dateObj.getTime())) {
+                throw new Error("Invalid timestamp");
+              }
+              const options = { timeZone: "America/New_York", timeZoneName: "short" };
+              displayName = dateObj.toLocaleString("en-US", options);
+            } catch {
+              return null;
             }
 
-            // Convert to EST (Eastern Standard Time)
-            const options = { timeZone: "America/New_York", timeZoneName: "short" };
-            displayName = date.toLocaleString("en-US", options);
-          } catch {
-            return null; // Exclude invalid timestamps
-          }
+            return { fullPath, displayName, status: "PENDING" };
+          })
+          .filter((f) => f !== null);
 
-          return { fullPath, displayName };
-        }).filter(file => file !== null); // Remove invalid entries
+        // Sort descending by timestamp
+        this.formattedFiles = rawFiles.sort((a, b) => {
+          const aTime = new Date(a.displayName).getTime();
+          const bTime = new Date(b.displayName).getTime();
+          return bTime - aTime;
+        });
 
-        // Initialize formattedFiles with the valid files
-        this.formattedFiles = [...this.files];
+        // Fetch the actual status from get_file_content
+        await Promise.all(this.formattedFiles.map((file) => this.fetchFileStatus(file)));
       } catch (error) {
-        console.error("Error fetching files:", error);
+        console.error("Error loading files:", error);
+        alert("Error loading run history. Please try again later.");
+      } finally {
+        this.filesLoading = false;
       }
     },
-    async openFileDetails(filePath) {
-      try {
-        const response = await fetch(`https://dev.rocox.co/api/get_file_content?path=${filePath}`);
-        const fileData = await response.json();
 
-        // Store the file details and show the modal
+    async fetchFileStatus(file) {
+      try {
+        const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${file.fullPath}`);
+        if (!resp.ok) {
+          throw new Error(`Status fetch failed with HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        file.status = data.STATUS || "PENDING";
+      } catch (err) {
+        // If there's an error, let's mark the run as FAIL
+        file.status = "FAIL";
+      }
+    },
+
+    async openFileDetails(filePath) {
+      this.stopPolling();
+
+      try {
+        const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${filePath}`);
+        if (!resp.ok) {
+          throw new Error(`Failed to open file. HTTP ${resp.status}`);
+        }
+        const fileData = await resp.json();
+
+        // Show the modal with details
         this.selectedFileDetails = fileData;
-        this.status = fileData.STATUS;
+        this.status = fileData.STATUS || "PENDING";
         this.isModalVisible = true;
+
+        // Update local file status
+        const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath);
+        if (fileRef) fileRef.status = this.status;
+
+        // If status is RUNNING, start polling
+        if (this.status === "RUNNING") {
+          this.startPolling(filePath);
+        }
       } catch (error) {
         console.error("Error fetching file content:", error);
+        alert("Could not load file details. Please try again later.");
       }
     },
+
+    startPolling(filePath) {
+      // Reset countdown
+      this.pollingCountdown = this.pollIntervalSeconds;
+
+      // Clear any previous interval
+      this.stopPolling();
+
+      // Start a 1-second interval
+      this.pollingInterval = setInterval(async () => {
+        // Decrement countdown
+        this.pollingCountdown--;
+
+        // If countdown hits 0 => re-fetch
+        if (this.pollingCountdown <= 0) {
+          this.pollingCountdown = this.pollIntervalSeconds; // reset countdown
+
+          // Perform the poll
+          try {
+            if (this.status !== "RUNNING") {
+              this.stopPolling();
+              return;
+            }
+
+            const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${filePath}`);
+            if (!resp.ok) {
+              throw new Error(`Poll error. HTTP ${resp.status}`);
+            }
+            const fileData = await resp.json();
+            this.selectedFileDetails = fileData;
+            this.status = fileData.STATUS;
+
+            // Update local list
+            const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath);
+            if (fileRef) fileRef.status = fileData.STATUS;
+
+            if (this.status !== "RUNNING") {
+              this.stopPolling();
+            }
+          } catch (err) {
+            console.error("Polling error:", err);
+            alert("Error polling the job status. Please try again.");
+            this.stopPolling();
+          }
+        }
+      }, 1000);
+    },
+
+    stopPolling() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+      // Reset countdown
+      this.pollingCountdown = 0;
+    },
+
     closeModal() {
-      // Close the modal and clear selected file details
       this.isModalVisible = false;
       this.selectedFileDetails = {};
       this.status = "";
+      this.stopPolling();
     },
+
     updateCurrentDatetime() {
-      // Get the current time in EST
       const options = { timeZone: "America/New_York", timeZoneName: "short" };
-      const now = new Date().toLocaleString("en-US", options);
-      this.currentDatetime = now;
+      this.currentDatetime = new Date().toLocaleString("en-US", options);
+    },
+
+    statusBadgeClass(status) {
+      // Assign a class for the listing badges
+      switch (status) {
+        case "RUNNING":
+          return "badge-running";
+        case "COMPLETED":
+          return "badge-completed";
+        case "PENDING":
+          return "badge-pending";
+        case "FAIL":
+          return "badge-fail";
+        default:
+          return "badge-unknown";
+      }
+    },
+
+    statusClass(status) {
+      // This is optional if you want to keep color-coded text
+      // for the pop-up, you can unify or separate.
+      // We'll just unify for now:
+      return this.statusBadgeClass(status);
     },
   },
   mounted() {
     this.updateCurrentDatetime();
     this.loadFiles();
-
-    // Update the current datetime every second
+    // Refresh current datetime every second
     setInterval(this.updateCurrentDatetime, 1000);
+  },
+  beforeDestroy() {
+    this.stopPolling();
   },
 };
 </script>
 
-<style>
-/* General container styling */
+<style scoped>
+/* Overall container styling */
 .container {
-  max-width: 800px;
+  max-width: 850px;
   margin: 20px auto;
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 8px;
   font-family: Arial, sans-serif;
   color: #333;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 20px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Header styling */
-h1 {
+/* Title */
+.page-title {
   text-align: center;
-  color: #007bff;
   font-size: 24px;
   margin-bottom: 10px;
+  color: #007bff;
 }
 
-/* Current datetime styling */
+/* Current time styling */
 .current-datetime {
   text-align: center;
   color: #555;
@@ -168,133 +390,218 @@ h1 {
   font-style: italic;
 }
 
-/* File list styling */
+/* Loading state */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 40px;
+}
+.loading-state .spinner {
+  border: 6px solid rgba(0,0,0,0.1);
+  border-top: 6px solid #007bff;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* File list */
 .file-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
-
 .file-item {
+  background: #fff;
   margin: 10px 0;
+  padding: 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 4px solid transparent;
+  transition: border-color 0.3s;
 }
-
+.file-item.latest {
+  border-left: 4px solid #007bff;
+}
 .file-link {
   color: #007bff;
   text-decoration: none;
   font-size: 16px;
   font-weight: bold;
+  flex: 1;
+  margin-right: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
 .file-link:hover {
   text-decoration: underline;
   color: #0056b3;
 }
 
-/* Loading text */
+/* Status badges for listing */
+.status-badge {
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #fff;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+.badge-running {
+  background: #1a69d7; /* Blue */
+}
+.badge-completed {
+  background: #4caf50;
+}
+.badge-pending {
+  background: #ffa500;
+}
+.badge-fail {
+  background: #f44336;
+}
+.badge-unknown {
+  background: #9e9e9e;
+}
+
+/* No valid files */
 .loading-text {
   text-align: center;
-  font-size: 18px;
+  font-size: 16px;
+  margin-top: 20px;
   color: #888;
 }
 
-/* Modal styling */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  padding: 1rem;
 }
-
 .modal-content {
   background: #fff;
-  padding: 20px;
-  border-radius: 8px;
   max-width: 600px;
-  width: 90%;
-  text-align: left;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  width: 100%;
   max-height: 80vh;
   overflow: hidden;
+  border-radius: 8px;
+  position: relative;
+  padding: 20px;
   display: flex;
   flex-direction: column;
 }
 
-/* Status section styling */
-.status-section {
-  margin-bottom: 15px;
+/* Title with no background color */
+.modal-title {
+  margin: 0 0 10px 0;
+  padding: 0;
+  font-size: 20px;
+  color: #333;
 }
 
-.status-running {
-  color: #ff9800;
-  font-weight: bold;
+/* Status text in the modal (RUNNING => no background) */
+.status-running-text {
+  color: #007bff; /* or #333 if you prefer dark text */
   display: flex;
   align-items: center;
+  font-weight: bold;
 }
-
-.spinner {
-  border: 3px solid rgba(0, 0, 0, 0.1);
-  border-top: 3px solid #007bff;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  margin-right: 8px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.status-completed {
+.status-completed-text {
   color: #4caf50;
   font-weight: bold;
 }
-
-.status-unknown {
+.status-pending-text {
+  color: #ffa500;
+  font-weight: bold;
+}
+.status-fail-text {
   color: #f44336;
   font-weight: bold;
 }
 
-/* Buttons */
+/* spinner for small usage */
+.spinner.small-spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Timer text for run updates */
+.update-timer p {
+  font-size: 14px;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* Modal body */
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  border-top: 1px solid #eee;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.output-item {
+  margin-bottom: 15px;
+}
+.fail-details {
+  margin-bottom: 15px;
+}
+
+/* Close button */
 .close-button {
-  background-color: #ff4d4f;
-  color: white;
+  align-self: flex-end;
+  background: #ff4d4f;
+  color: #fff;
   border: none;
-  padding: 10px 20px;
+  padding: 10px 18px;
   border-radius: 5px;
   cursor: pointer;
   margin-top: 10px;
+  font-weight: bold;
+  font-size: 14px;
 }
-
 .close-button:hover {
-  background-color: #d9363e;
+  background: #d9363e;
 }
 
+/* Link for run page */
 .link-button {
   color: #007bff;
   text-decoration: none;
   font-weight: bold;
 }
-
 .link-button:hover {
   text-decoration: underline;
   color: #0056b3;
 }
 
-/* Scrolling modal body */
-.modal-body {
-  overflow-y: auto;
-  flex: 1;
+/* Keyframes for spinner, reuse same as above */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
