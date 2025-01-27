@@ -104,7 +104,7 @@
                 <strong>Error Details:</strong> {{ output.error_details }}
               </p>
               <p>
-                <strong>Notebook Path:</strong>
+                <strong>Notebook Path: </strong>
                 <span> {{ (output.parameters && output.parameters.notebook_path) ? output.parameters.notebook_path : "N/A" }}</span>
               </p>
               <p>
