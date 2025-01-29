@@ -8,7 +8,7 @@
       </label>
       <input id="file-input" type="file" multiple @change="handleFileSelect" class="file-input" />
       <p v-if="selectedFiles.length" class="file-info">
-        Selected Files: {{ selectedFiles.map((f) => f.name).join(', ') }}
+        Selected Files: {{ selectedFiles.map((f) => f.name).join(", ") }}
       </p>
     </div>
 
@@ -16,7 +16,11 @@
     <div v-if="selectedFiles.length" class="file-config-section">
       <h2>Configure Each File</h2>
 
-      <div v-for="(fc, index) in fileConfigs" :key="index" class="file-config">
+      <div
+        v-for="(fc, index) in fileConfigs"
+        :key="index"
+        class="file-config"
+      >
         <!-- Basic File Info -->
         <div class="file-details">
           <p>
@@ -27,12 +31,15 @@
           </p>
         </div>
 
-        <!-- If valid format => user picks auto/manual row, folder, company -->
         <div v-if="!fc.invalidFormat">
           <!-- AUTO-SELECT TOGGLE -->
           <div class="auto-select-row">
             <label class="checkbox-label">
-              <input type="checkbox" v-model="fc.autoSelect" @change="onAutoManualToggle(index)" />
+              <input
+                type="checkbox"
+                v-model="fc.autoSelect"
+                @change="onAutoManualToggle(index)"
+              />
               Auto-Detect Header Row
             </label>
 
@@ -50,17 +57,25 @@
 
           <!-- FOLDER -->
           <label class="dropdown-label">Select Folder:</label>
-          <select v-model="fc.folder" @change="onFolderChange(index)" class="dropdown">
+          <select
+            v-model="fc.folder"
+            @change="onFolderChange(index)"
+            class="dropdown"
+          >
             <option value="" disabled>Select Folder</option>
             <option value="MVR">MVR</option>
             <option value="Services & Deductions">Services & Deductions</option>
             <option value="Company Statements">Company Statements</option>
           </select>
 
-          <!-- If folder=MVR => show only companies with mvr_fields -->
+          <!-- MVR => filter by mvr_fields -->
           <div v-if="fc.folder === 'MVR'" class="dropdown-group">
             <label class="dropdown-label">Select Company (MVR):</label>
-            <select v-model="fc.company" class="dropdown" @change="handleCompanyChange(index)">
+            <select
+              v-model="fc.company"
+              class="dropdown"
+              @change="handleCompanyChange(index)"
+            >
               <option value="" disabled>Select a Company</option>
               <option
                 v-for="m in fc.filteredCompanies"
@@ -72,10 +87,14 @@
             </select>
           </div>
 
-          <!-- If folder=Company Statements => show only companies with statement_fields -->
+          <!-- Company Statements => filter by statement_fields -->
           <div v-else-if="fc.folder === 'Company Statements'" class="dropdown-group">
             <label class="dropdown-label">Select Company (Statements):</label>
-            <select v-model="fc.company" class="dropdown" @change="handleCompanyChange(index)">
+            <select
+              v-model="fc.company"
+              class="dropdown"
+              @change="handleCompanyChange(index)"
+            >
               <option value="" disabled>Select a Company</option>
               <option
                 v-for="m in fc.filteredCompanies"
@@ -92,28 +111,46 @@
             No company selection needed for Services & Deductions.
           </p>
 
-          <!-- PROGRESS BAR 0-100 => parse + sum + DB -->
+          <!-- Progress Bar -->
           <div
             v-if="fc.fileProcessProgress < 100 && fc.fileProcessProgress > 0"
             class="process-bar-wrapper"
           >
-            <div class="process-bar" :style="{ width: fc.fileProcessProgress + '%' }"></div>
-            <p class="process-bar-text">{{ fc.fileProcessProgress }}% ...</p>
+            <div
+              class="process-bar"
+              :style="{ width: fc.fileProcessProgress + '%' }"
+            ></div>
+            <p class="process-bar-text">
+              {{ fc.fileProcessProgress }}% ...
+            </p>
           </div>
 
-          <!-- MISSING FIELDS or success -->
+          <!-- Missing fields OR success -->
           <div v-if="fc.missingFields.length" class="missing-fields">
-            <p><strong>Missing Fields:</strong> {{ fc.missingFields.join(', ') }}</p>
+            <p><strong>Missing Fields:</strong> {{ fc.missingFields.join(", ") }}</p>
           </div>
-          <p v-else-if="fc.fieldsValid" class="valid-fields">✅ All required fields match.</p>
-
-          <!-- GROSS SUM -->
-          <p v-if="fc.grossCommSum !== undefined && fc.fieldsValid" class="gross-comm">
-            <strong>Total Gross Commission (this file):</strong>
-            {{ fc.grossCommSum.toFixed(2) }}
+          <p v-else-if="fc.fieldsValid" class="valid-fields">
+            ✅ All required fields match.
           </p>
 
-          <!-- DB RESULT -->
+          <!-- Carrier Name match message -->
+          <p
+            v-if="fc.carrierNameMessage"
+            :class="fc.carrierNameIsMatch ? 'carrier-match-ok' : 'carrier-match-warn'"
+          >
+            {{ fc.carrierNameMessage }}
+          </p>
+
+          <!-- GROSS SUM -->
+          <!-- <p
+            v-if="fc.grossCommSum !== undefined && fc.fieldsValid"
+            class="gross-comm"
+          >
+            <strong>Total Gross Commission (this file):</strong>
+            {{ fc.grossCommSum.toFixed(2) }}
+          </p> -->
+
+          <!-- DB RESULT (only if statements) -->
           <p v-if="fc.dbCheckDone && fc.matchExists" class="match-alert">
             ⚠️ The total gross commission matches a month in the last 3 months!
           </p>
@@ -121,8 +158,11 @@
             ✅ No matches found in the last 3 months. You're good to go!
           </p>
 
-          <!-- UPLOAD progress if uploading -->
-          <div v-if="uploading && uploadProgress[fc.file.name]" class="upload-progress-wrapper">
+          <!-- Upload progress if uploading -->
+          <div
+            v-if="uploading && uploadProgress[fc.file.name]"
+            class="upload-progress-wrapper"
+          >
             <p>Uploading: {{ uploadProgress[fc.file.name] }}%</p>
             <progress :value="uploadProgress[fc.file.name]" max="100"></progress>
           </div>
@@ -130,14 +170,14 @@
       </div>
     </div>
 
-    <!-- SUBMIT / UPLOAD ALL -->
+    <!-- Submit -->
     <div v-if="selectedFiles.length" class="submit-section">
       <button
         @click="uploadFiles"
         :disabled="!selectedFiles.length || uploading"
         class="upload-button"
       >
-        {{ uploading ? 'Uploading...' : 'Upload Files' }}
+        {{ uploading ? "Uploading..." : "Upload Files" }}
       </button>
       <p v-if="uploadResponse" class="upload-response">{{ uploadResponse }}</p>
       <ul class="upload-results">
@@ -157,9 +197,9 @@
 </template>
 
 <script>
-import axios from 'axios'
-import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+import axios from "axios";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 export default {
   data() {
@@ -171,25 +211,24 @@ export default {
       uploadResults: [],
       uploadProgress: {},
       companyMetadata: [],
-    }
+    };
   },
   methods: {
     async handleFileSelect(e) {
-      const files = Array.from(e.target.files)
-      const validExts = ['csv', 'xls', 'xlsx']
+      const files = Array.from(e.target.files);
+      const validExts = ["csv", "xls", "xlsx"];
 
-      // fetch metadata if not loaded
       if (!this.companyMetadata.length) {
-        await this.fetchCompanyMetadata()
+        await this.fetchCompanyMetadata();
       }
 
-      this.selectedFiles = files
+      this.selectedFiles = files;
       this.fileConfigs = files.map((file) => {
-        const ext = file.name.split('.').pop().toLowerCase()
+        const ext = file.name.split(".").pop().toLowerCase();
         return {
           file,
-          folder: '',
-          company: '',
+          folder: "",
+          company: "",
           invalidFormat: !validExts.includes(ext),
           autoSelect: true,
           manualHeaderRow: 1,
@@ -202,233 +241,275 @@ export default {
           filteredCompanies: [],
           _headers: [],
           _dataRows: [],
-        }
-      })
+          carrierNameMessage: "",      // NEW
+          carrierNameIsMatch: false,   // NEW
+        };
+      });
     },
 
     async fetchCompanyMetadata() {
       try {
         const resp = await axios.get(
-          'https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json',
-        )
-        this.companyMetadata = resp.data
+          "https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json"
+        );
+        this.companyMetadata = resp.data;
       } catch (err) {
-        console.error('Failed to fetch metadata:', err)
+        console.error("Failed to fetch metadata:", err);
       }
     },
 
     onAutoManualToggle(i) {
-      const fc = this.fileConfigs[i]
-      // Just reset parse results, but keep folder and company so the user doesn't lose their selection
-      fc.fileProcessProgress = 0
-      fc.missingFields = []
-      fc.fieldsValid = false
-      fc.grossCommSum = undefined
-      fc.dbCheckDone = false
-      fc.matchExists = false
-      fc._headers = []
-      fc._dataRows = []
+      const fc = this.fileConfigs[i];
+      fc.fileProcessProgress = 0;
+      fc.missingFields = [];
+      fc.fieldsValid = false;
+      fc.grossCommSum = undefined;
+      fc.dbCheckDone = false;
+      fc.matchExists = false;
+      fc._headers = [];
+      fc._dataRows = [];
+      fc.carrierNameMessage = "";
+      fc.carrierNameIsMatch = false;
     },
 
     async onManualRowChange(i) {
-      const fc = this.fileConfigs[i]
-      fc.fileProcessProgress = 0
-      fc.missingFields = []
-      fc.fieldsValid = false
-      fc.grossCommSum = undefined
-      fc.dbCheckDone = false
-      fc.matchExists = false
-      fc._headers = []
-      fc._dataRows = []
+      const fc = this.fileConfigs[i];
+      fc.fileProcessProgress = 0;
+      fc.missingFields = [];
+      fc.fieldsValid = false;
+      fc.grossCommSum = undefined;
+      fc.dbCheckDone = false;
+      fc.matchExists = false;
+      fc._headers = [];
+      fc._dataRows = [];
+      fc.carrierNameMessage = "";
+      fc.carrierNameIsMatch = false;
 
       if (fc.folder && fc.company && !fc.invalidFormat) {
-        await this.parseAndValidate(fc, 50)
+        await this.parseAndValidate(fc, 50);
         if (fc.fieldsValid && fc.grossCommSum !== undefined) {
-          fc.fileProcessProgress = 50
-          await this.checkDb(fc, 100)
+          fc.fileProcessProgress = 50;
+          await this.checkDb(fc, 100);
         } else {
-          fc.fileProcessProgress = 100
+          fc.fileProcessProgress = 100;
         }
       }
     },
 
     onFolderChange(i) {
-      const fc = this.fileConfigs[i]
-      if (!fc.folder) return
+      const fc = this.fileConfigs[i];
+      if (!fc.folder) return;
 
-      // Keep the user's auto/manual selection, but reset parse results
-      fc.company = ''
-      fc.missingFields = []
-      fc.fieldsValid = false
-      fc.grossCommSum = undefined
-      fc.dbCheckDone = false
-      fc.matchExists = false
-      fc.fileProcessProgress = 0
+      fc.company = "";
+      fc.missingFields = [];
+      fc.fieldsValid = false;
+      fc.grossCommSum = undefined;
+      fc.dbCheckDone = false;
+      fc.matchExists = false;
+      fc.fileProcessProgress = 0;
+      fc._headers = [];
+      fc._dataRows = [];
+      fc.carrierNameMessage = "";
+      fc.carrierNameIsMatch = false;
 
-      // Filter companies: MVR => c.mvr_fields, Statements => c.statement_fields
-      if (fc.folder === 'MVR') {
-        fc.filteredCompanies = this.companyMetadata.filter((c) => c.mvr_fields)
-      } else if (fc.folder === 'Company Statements') {
-        fc.filteredCompanies = this.companyMetadata.filter((c) => c.statement_fields)
+      if (fc.folder === "MVR") {
+        fc.filteredCompanies = this.companyMetadata.filter((c) => c.mvr_fields);
+      } else if (fc.folder === "Company Statements") {
+        fc.filteredCompanies = this.companyMetadata.filter(
+          (c) => c.statement_fields
+        );
       } else {
-        fc.filteredCompanies = []
+        fc.filteredCompanies = [];
       }
     },
 
     async handleCompanyChange(i) {
-      const fc = this.fileConfigs[i]
-      if (!fc.folder || !fc.company || fc.invalidFormat) return
+      const fc = this.fileConfigs[i];
+      if (!fc.folder || !fc.company || fc.invalidFormat) return;
 
-      fc.fileProcessProgress = 0
-      await this.parseAndValidate(fc, 50)
+      fc.fileProcessProgress = 0;
+      fc.carrierNameMessage = "";
+      fc.carrierNameIsMatch = false;
+      await this.parseAndValidate(fc, 50);
 
-      // Only do DB check if it's Company Statements and fields are valid + sum found
-      if (fc.folder === 'Company Statements' && fc.fieldsValid && fc.grossCommSum !== undefined) {
-        fc.fileProcessProgress = 50
-        await this.checkDb(fc, 100)
+      if (
+        fc.folder === "Company Statements" &&
+        fc.fieldsValid &&
+        fc.grossCommSum !== undefined
+      ) {
+        fc.fileProcessProgress = 50;
+        await this.checkDb(fc, 100);
       } else {
-        // For MVR or no sum, we skip and just set progress = 100
-        fc.fileProcessProgress = 100
+        fc.fileProcessProgress = 100;
       }
     },
 
+    /**
+     * parseAndValidate: Parse the file, check required fields,
+     * and do partial match for "Carrier Name" (first row).
+     */
     async parseAndValidate(fc, halfPoint) {
-      fc.missingFields = []
-      fc.fieldsValid = false
-      fc.grossCommSum = undefined
-      fc.dbCheckDone = false
-      fc.matchExists = false
-      fc._headers = []
-      fc._dataRows = []
+      fc.missingFields = [];
+      fc.fieldsValid = false;
+      fc.grossCommSum = undefined;
+      fc.dbCheckDone = false;
+      fc.matchExists = false;
+      fc._headers = [];
+      fc._dataRows = [];
+      fc.carrierNameMessage = "";
+      fc.carrierNameIsMatch = false;
 
       // 1) Find relevant metadata
-      let meta
-      if (fc.folder === 'MVR') {
-        // For MVR, we look for the company's mvr_fields
-        meta = this.companyMetadata.find((c) => c.full_company_name === fc.company && c.mvr_fields)
-      } else if (fc.folder === 'Company Statements') {
+      let meta;
+      if (fc.folder === "MVR") {
         meta = this.companyMetadata.find(
-          (c) => c.full_company_name === fc.company && c.statement_fields,
-        )
+          (c) => c.full_company_name === fc.company && c.mvr_fields
+        );
+      } else if (fc.folder === "Company Statements") {
+        meta = this.companyMetadata.find(
+          (c) => c.full_company_name === fc.company && c.statement_fields
+        );
       }
 
       if (!meta) {
-        fc.missingFields.push('No metadata found for this selection')
-        return
+        fc.missingFields.push("No metadata found for this selection");
+        return;
       }
 
-      // 2) Parse file => 0->half
-      await this.parseFile(fc, halfPoint)
-
+      // 2) Parse file up to half
+      await this.parseFile(fc, halfPoint);
       if (!fc._headers.length) {
-        fc.missingFields.push('No header row found')
-        return
+        fc.missingFields.push("No header row found");
+        return;
       }
 
-      // 3) Identify the dictionary object for MVR or statements
-      let fieldDict // <--- The dictionary from the metadata
-      if (fc.folder === 'MVR') {
-        fieldDict = meta.mvr_fields
-      } else {
-        fieldDict = meta.statement_fields
-      }
+      let fieldDict =
+        fc.folder === "MVR" ? meta.mvr_fields : meta.statement_fields;
       if (!fieldDict) {
-        fc.missingFields.push('No fields defined in metadata')
-        return
+        fc.missingFields.push("No fields defined in metadata");
+        return;
       }
 
-      // 4) We gather all distinct internal fields from the dictionary.
-      // For example, { "Policy #": "policy_number", "Pol #": "policy_number", "Prem": "premium" }
-      // => we might need to find "policy_number", "premium" as required internal fields
-      const neededFields = [...new Set(Object.values(fieldDict))]
-      // Example result: ["policy_number", "premium", "gross_comission"]
+      // 3) For Company Statements => do partial "Carrier Name" check
+      if (fc.folder === "Company Statements") {
+        // The metadata might define the column name for carrier name, or we can assume "Carrier Name"
+        const carrierNameKey = "Carrier Name";
+        const matchedHeader = fc._headers.find(
+          (hdr) => hdr.toLowerCase() === carrierNameKey.toLowerCase()
+        );
+        if (matchedHeader && fc._dataRows.length > 0) {
+          // Only check first row's value
+          const firstVal = String(fc._dataRows[0][matchedHeader] || "")
+            .trim()
+            .toLowerCase();
+          const selectedCo = fc.company.toLowerCase();
 
-      // Build a map: internalField -> array of possible CSV headers
-      // e.g. "policy_number" -> ["Policy #", "Pol #"], "premium" -> ["Prem"]
-      const fieldMap = {}
+          // Expand this aliasMap as needed
+          const aliasMap = {
+              "ambetter":"ambetter",
+              "uhc aca":"united healthcare",
+              "cigna":"cigna hlth grp",
+              "molina marketplace":"molina hlthcare of fl inc",
+              "aetna":"aetna override",
+              "oscar healthcare":"oscar override"
+            };
+
+          const expanded = aliasMap[firstVal] || firstVal;
+
+          if (expanded.includes(selectedCo) || selectedCo.includes(expanded)) {
+            fc.carrierNameMessage = `✅ The file's "Carrier Name" ("${firstVal}") partly matches the selected company ("${fc.company}").`;
+            fc.carrierNameIsMatch = true;
+          } else {
+            fc.carrierNameMessage = `⚠️ The file's "Carrier Name" ("${firstVal}") does NOT match the selected company ("${fc.company}").`;
+            fc.carrierNameIsMatch = false;
+          }
+        }
+      }
+
+      // 4) Gather required internal fields from dictionary
+      const neededFields = [...new Set(Object.values(fieldDict))];
+      const fieldMap = {};
       neededFields.forEach((internal) => {
-        fieldMap[internal] = []
-      })
+        fieldMap[internal] = [];
+      });
 
       for (const [csvField, internalField] of Object.entries(fieldDict)) {
         if (fieldMap[internalField]) {
-          fieldMap[internalField].push(csvField)
+          fieldMap[internalField].push(csvField);
         }
       }
 
-      // 5) Check missing. For each internal field, at least one possible CSV header must appear in user’s file
-      const missing = []
+      // 5) Check missing fields
+      const missing = [];
       for (const [internalField, possibleCsvHeaders] of Object.entries(fieldMap)) {
-        // If dictionary told us "Pol #", "Policy #" both map to "policy_number",
-        // then possibleCsvHeaders = ["Pol #", "Policy #"].
-        // We only need at least one of these in fc._headers.
-        if (!possibleCsvHeaders.length) continue
-
-        const found = possibleCsvHeaders.some((hdr) => fc._headers.includes(hdr))
+        if (!possibleCsvHeaders.length) continue;
+        const found = possibleCsvHeaders.some((hdr) =>
+          fc._headers.includes(hdr)
+        );
         if (!found) {
-          missing.push(`"${internalField}"`)
+          missing.push(`"${internalField}"`);
         }
       }
-      fc.missingFields = missing
-      fc.fieldsValid = missing.length === 0
+
+      fc.missingFields = missing;
+      fc.fieldsValid = missing.length === 0;
       if (!fc.fieldsValid) {
-        // If any required internal field not found, mark as invalid
-        return
+        return;
       }
 
-      // 6) If folder = MVR => skip summation & DB check, done
-      if (fc.folder === 'MVR') {
-        return
+      // 6) If MVR => done
+      if (fc.folder === "MVR") {
+        return;
       }
 
-      // 7) If folder = Company Statements => do summation for "gross_comission"
-      // e.g. internal field = "gross_comission"
-      const possibleGross = fieldMap['gross_comission'] || []
-      const matchedGrossHdr = possibleGross.find((h) => fc._headers.includes(h))
+      // 7) Summation for "Company Statements" => "gross_comission"
+      const possibleGross = fieldMap["gross_comission"] || [];
+      const matchedGrossHdr = possibleGross.find((h) =>
+        fc._headers.includes(h)
+      );
       if (!matchedGrossHdr) {
-        fc.missingFields.push(`"gross_comission" field`)
-        fc.fieldsValid = false
-        return
+        fc.missingFields.push(`"gross_comission" field`);
+        fc.fieldsValid = false;
+        return;
       }
 
-      // 8) Summation: handle negative parentheses, strip out non-numerics
-      let sum = 0
+      let sum = 0;
       for (const row of fc._dataRows) {
-        let val = row[matchedGrossHdr]
+        let val = row[matchedGrossHdr];
         if (val) {
-          if (typeof val !== 'string') {
-            val = val == null ? '' : String(val)
+          if (typeof val !== "string") {
+            val = val == null ? "" : String(val);
           }
-          let strVal = val.trim()
-          let isNegative = false
-          // parentheses => negative
-          if (strVal.startsWith('(') && strVal.endsWith(')')) {
-            isNegative = true
-            strVal = strVal.slice(1, -1)
+          let strVal = val.trim();
+          let isNegative = false;
+          if (strVal.startsWith("(") && strVal.endsWith(")")) {
+            isNegative = true;
+            strVal = strVal.slice(1, -1);
           }
-          strVal = strVal.replace(/[^0-9.\-]+/g, '')
-          let numericVal = parseFloat(strVal) || 0
-          if (isNegative) numericVal = -numericVal
-
-          sum += numericVal
+          strVal = strVal.replace(/[^0-9.\-]+/g, "");
+          let numericVal = parseFloat(strVal) || 0;
+          if (isNegative) numericVal = -numericVal;
+          sum += numericVal;
         }
       }
-      fc.grossCommSum = sum
+      fc.grossCommSum = sum;
     },
-    async checkDb(fc, endPoint) {
-      fc.dbCheckDone = false
-      fc.matchExists = false
-      fc.fileProcessProgress = Math.max(fc.fileProcessProgress, 50)
 
-      const now = new Date()
-      let found = false
-      const sum2d = parseFloat(fc.grossCommSum.toFixed(2))
+    async checkDb(fc, endPoint) {
+      fc.dbCheckDone = false;
+      fc.matchExists = false;
+      fc.fileProcessProgress = Math.max(fc.fileProcessProgress, 50);
+
+      const now = new Date();
+      let found = false;
+      const sum2d = parseFloat(fc.grossCommSum.toFixed(2));
 
       try {
+        // Check last 3 months
         for (let offset = 0; offset < 3; offset++) {
-          const d = new Date(now.getFullYear(), now.getMonth() - offset, 1)
-          const m = d.getMonth() + 1
-          const y = d.getFullYear()
+          const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+          const m = d.getMonth() + 1;
+          const y = d.getFullYear();
 
           const queryStr = `
             SELECT SUM(gross_comission) as sum_gross
@@ -436,238 +517,240 @@ export default {
             WHERE MONTH(AddedDate) = ${m}
               AND YEAR(AddedDate) = ${y}
               AND carrier = '${fc.company}'
-          `
-          const resp = await axios.post('https://dev.rocox.co/api/query_db', {
+          `;
+          const resp = await axios.post("https://dev.rocox.co/api/query_db", {
             query: queryStr,
-          })
-          const [row] = resp.data || []
-          const moSum = parseFloat(parseFloat(row?.sum_gross || 0).toFixed(2))
+          });
+          const [row] = resp.data || [];
+          const moSum = parseFloat(parseFloat(row?.sum_gross || 0).toFixed(2));
           if (moSum === sum2d) {
-            found = true
+            found = true;
           }
         }
-        fc.matchExists = found
+        fc.matchExists = found;
       } catch (err) {
-        console.error('DB check error:', err)
+        console.error("DB check error:", err);
       }
 
-      fc.dbCheckDone = true
-      fc.fileProcessProgress = endPoint
+      fc.dbCheckDone = true;
+      fc.fileProcessProgress = endPoint;
     },
 
-    // parseFile => single pass parse with worker for CSV up to ~5k rows
+    // parseFile => parse CSV or XLS up to halfPoint
     async parseFile(fc, halfPoint) {
-      fc._headers = []
-      fc._dataRows = []
-      fc.fileProcessProgress = 0
+      fc._headers = [];
+      fc._dataRows = [];
+      fc.fileProcessProgress = 0;
 
-      const file = fc.file
-      const ext = file.name.split('.').pop().toLowerCase()
+      const file = fc.file;
+      const ext = file.name.split(".").pop().toLowerCase();
 
-      if (ext === 'csv') {
-        await this.parseCSV(fc, file, halfPoint)
-      } else if (ext === 'xls' || ext === 'xlsx') {
-        await this.parseXLS(fc, file, halfPoint)
+      if (ext === "csv") {
+        await this.parseCSV(fc, file, halfPoint);
+      } else if (ext === "xls" || ext === "xlsx") {
+        await this.parseXLS(fc, file, halfPoint);
       } else {
-        fc.fileProcessProgress = halfPoint
+        fc.fileProcessProgress = halfPoint;
       }
     },
 
     async parseCSV(fc, file, halfPoint) {
       return new Promise((resolve) => {
         Papa.parse(file, {
-          delimiter: '',
+          delimiter: "",
           skipEmptyLines: true,
           header: false,
           worker: true,
           complete: (results) => {
             if (!results.data.length) {
-              fc._headers = []
-              fc._dataRows = []
-              fc.fileProcessProgress = halfPoint
-              resolve()
-              return
+              fc._headers = [];
+              fc._dataRows = [];
+              fc.fileProcessProgress = halfPoint;
+              resolve();
+              return;
             }
-            let rawRows = results.data
+            let rawRows = results.data;
             if (fc.autoSelect) {
               // detect best row
-              let bestIndex = 0
-              let bestScore = 0
-              const maxCheck = Math.min(rawRows.length, 20)
+              let bestIndex = 0;
+              let bestScore = 0;
+              const maxCheck = Math.min(rawRows.length, 20);
               for (let i = 0; i < maxCheck; i++) {
-                const row = rawRows[i]
-                const sc = row.filter((c) => c && c.toString().trim() !== '').length
+                const row = rawRows[i];
+                const sc = row.filter((c) => c && c.toString().trim() !== "").length;
                 if (sc > bestScore) {
-                  bestScore = sc
-                  bestIndex = i
+                  bestScore = sc;
+                  bestIndex = i;
                 }
               }
-              this.buildRowsFromIndex(fc, rawRows, bestIndex)
+              this.buildRowsFromIndex(fc, rawRows, bestIndex);
             } else {
-              let userIndex = fc.manualHeaderRow - 1
+              let userIndex = fc.manualHeaderRow - 1;
               if (userIndex < 0 || userIndex >= rawRows.length) {
-                fc._headers = []
-                fc._dataRows = []
+                fc._headers = [];
+                fc._dataRows = [];
               } else {
-                this.buildRowsFromIndex(fc, rawRows, userIndex)
+                this.buildRowsFromIndex(fc, rawRows, userIndex);
               }
             }
-            fc.fileProcessProgress = halfPoint
-            resolve()
+            fc.fileProcessProgress = halfPoint;
+            resolve();
           },
           error: (err) => {
-            console.error('Papa parse error:', err)
-            fc._headers = []
-            fc._dataRows = []
-            fc.fileProcessProgress = halfPoint
-            resolve()
+            console.error("Papa parse error:", err);
+            fc._headers = [];
+            fc._dataRows = [];
+            fc.fileProcessProgress = halfPoint;
+            resolve();
           },
-        })
-      })
+        });
+      });
     },
 
     async parseXLS(fc, file, halfPoint) {
       return new Promise((resolve) => {
-        fc.fileProcessProgress = 10
-        const reader = new FileReader()
+        fc.fileProcessProgress = 10;
+        const reader = new FileReader();
         reader.onload = (e) => {
-          fc.fileProcessProgress = halfPoint - 10
-          const data = new Uint8Array(e.target.result)
-          const wb = XLSX.read(data, { type: 'array' })
-          const sheet = wb.Sheets[wb.SheetNames[0]]
-          const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+          fc.fileProcessProgress = halfPoint - 10;
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: "array" });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
           if (!raw.length) {
-            fc._headers = []
-            fc._dataRows = []
-            fc.fileProcessProgress = halfPoint
-            resolve()
-            return
+            fc._headers = [];
+            fc._dataRows = [];
+            fc.fileProcessProgress = halfPoint;
+            resolve();
+            return;
           }
           if (fc.autoSelect) {
-            let bestIndex = 0
-            let bestScore = 0
-            const maxCheck = Math.min(raw.length, 20)
+            let bestIndex = 0;
+            let bestScore = 0;
+            const maxCheck = Math.min(raw.length, 20);
             for (let i = 0; i < maxCheck; i++) {
-              const row = raw[i]
-              const sc = row.filter((c) => c && c.toString().trim() !== '').length
+              const row = raw[i];
+              const sc = row.filter((c) => c && c.toString().trim() !== "").length;
               if (sc > bestScore) {
-                bestScore = sc
-                bestIndex = i
+                bestScore = sc;
+                bestIndex = i;
               }
             }
-            this.buildRowsFromXLSIndex(fc, raw, bestIndex)
+            this.buildRowsFromXLSIndex(fc, raw, bestIndex);
           } else {
-            let userIndex = fc.manualHeaderRow - 1
+            let userIndex = fc.manualHeaderRow - 1;
             if (userIndex < 0 || userIndex >= raw.length) {
-              fc._headers = []
-              fc._dataRows = []
+              fc._headers = [];
+              fc._dataRows = [];
             } else {
-              this.buildRowsFromXLSIndex(fc, raw, userIndex)
+              this.buildRowsFromXLSIndex(fc, raw, userIndex);
             }
           }
-          fc.fileProcessProgress = halfPoint
-          resolve()
-        }
+          fc.fileProcessProgress = halfPoint;
+          resolve();
+        };
         reader.onerror = (err) => {
-          console.error('XLS parse error:', err)
-          fc._headers = []
-          fc._dataRows = []
-          fc.fileProcessProgress = halfPoint
-          resolve()
-        }
-        reader.readAsArrayBuffer(file)
-      })
+          console.error("XLS parse error:", err);
+          fc._headers = [];
+          fc._dataRows = [];
+          fc.fileProcessProgress = halfPoint;
+          resolve();
+        };
+        reader.readAsArrayBuffer(file);
+      });
     },
 
     buildRowsFromIndex(fc, rawRows, headerIndex) {
-      const headers = rawRows[headerIndex].map((x) => (x || '').trim())
-      const dataRows = []
+      const headers = rawRows[headerIndex].map((x) => (x || "").trim());
+      const dataRows = [];
       for (let i = 0; i < rawRows.length; i++) {
-        if (i === headerIndex) continue
-        const row = rawRows[i]
-        const obj = {}
+        if (i === headerIndex) continue;
+        const row = rawRows[i];
+        const obj = {};
         row.forEach((val, idx) => {
-          const head = headers[idx] || `Unknown_${idx}`
-          obj[head] = val
-        })
-        dataRows.push(obj)
+          const head = headers[idx] || `Unknown_${idx}`;
+          obj[head] = val;
+        });
+        dataRows.push(obj);
       }
-      fc._headers = headers
-      fc._dataRows = dataRows
+      fc._headers = headers;
+      fc._dataRows = dataRows;
     },
 
     buildRowsFromXLSIndex(fc, raw, headerIndex) {
-      const headers = raw[headerIndex].map((h) => (h || '').toString().trim())
-      const dataRows = []
+      const headers = raw[headerIndex].map((h) => (h || "").toString().trim());
+      const dataRows = [];
       for (let i = 0; i < raw.length; i++) {
-        if (i === headerIndex) continue
-        const row = raw[i]
-        const obj = {}
+        if (i === headerIndex) continue;
+        const row = raw[i];
+        const obj = {};
         row.forEach((val, idx) => {
-          const head = headers[idx] || `Unknown_${idx}`
-          obj[head] = val
-        })
-        dataRows.push(obj)
+          const head = headers[idx] || `Unknown_${idx}`;
+          obj[head] = val;
+        });
+        dataRows.push(obj);
       }
-      fc._headers = headers
-      fc._dataRows = dataRows
+      fc._headers = headers;
+      fc._dataRows = dataRows;
     },
 
-    /* 6) Final upload of all files, each with separate progress */
     async uploadFiles() {
-      this.uploading = true
-      this.uploadResponse = null
-      this.uploadResults = []
+      this.uploading = true;
+      this.uploadResponse = null;
+      this.uploadResults = [];
 
       for (let i = 0; i < this.fileConfigs.length; i++) {
-        const fc = this.fileConfigs[i]
+        const fc = this.fileConfigs[i];
         if (fc.invalidFormat) {
           this.uploadResults.push({
             fileName: fc.file.name,
-            status: 'failed',
-            message: 'Invalid format, not uploaded.',
-          })
-          continue
+            status: "failed",
+            message: "Invalid format, not uploaded.",
+          });
+          continue;
         }
 
-        const formData = new FormData()
-        formData.append('file', fc.file)
-        formData.append('folder', fc.folder)
-        formData.append('company', fc.company)
+        const formData = new FormData();
+        formData.append("file", fc.file);
+        formData.append("folder", fc.folder);
+        formData.append("company", fc.company);
 
         try {
-          await axios.post('https://dev.rocox.co/api/upload_files', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+          await axios.post("https://dev.rocox.co/api/upload_files", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
             onUploadProgress: (pe) => {
-              const pc = Math.round((pe.loaded * 100) / pe.total)
-              this.uploadProgress[fc.file.name] = pc
+              const pc = Math.round((pe.loaded * 100) / pe.total);
+              this.uploadProgress[fc.file.name] = pc;
             },
-          })
+          });
 
           this.uploadResults.push({
             fileName: fc.file.name,
-            status: 'success',
-            message: 'Uploaded successfully',
-          })
+            status: "success",
+            message: "Uploaded successfully",
+          });
         } catch (error) {
-          console.error(`Error uploading file '${fc.file.name}':`, error.message)
+          console.error(
+            `Error uploading file '${fc.file.name}':`,
+            error.message
+          );
           this.uploadResults.push({
             fileName: fc.file.name,
-            status: 'failed',
-            message: 'Upload failed',
-          })
+            status: "failed",
+            message: "Upload failed",
+          });
         }
       }
 
-      this.uploadResponse = 'File upload process completed.'
-      this.uploading = false
+      this.uploadResponse = "File upload process completed.";
+      this.uploading = false;
     },
   },
-}
+};
 </script>
 
 <style scoped>
-/* Container */
+/* Container styling */
 .container {
   max-width: 850px;
   margin: 20px auto;
@@ -732,7 +815,7 @@ export default {
   margin-top: 5px;
 }
 
-/* Auto / Manual Row */
+/* Auto/Manual Row */
 .auto-select-row {
   display: flex;
   align-items: center;
@@ -754,7 +837,7 @@ export default {
   border-radius: 4px;
 }
 
-/* Folder / Company */
+/* Folder/Company */
 .dropdown-label {
   display: block;
   margin: 5px 0;
@@ -803,6 +886,18 @@ export default {
   font-size: 14px;
   color: #28a745;
   font-weight: bold;
+}
+
+/* Carrier Name partial-match feedback */
+.carrier-match-ok {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #28a745; /* green */
+}
+.carrier-match-warn {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #ffc107; /* yellowish */
 }
 
 /* Progress Bar for parse+db check */
