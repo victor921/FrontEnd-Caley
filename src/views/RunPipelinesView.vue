@@ -9,7 +9,7 @@
     </div>
 
     <div class="content-grid">
-      <!-- File Management -->
+      <!-- FILE MANAGEMENT CARD -->
       <div class="card file-management">
         <div class="card-header">
           <h2>File Management</h2>
@@ -33,12 +33,9 @@
           </div>
 
           <div class="file-list-container">
-            <p v-if="loadingFiles" class="info-text">
-              Refreshing file list...
-            </p>
+            <p v-if="loadingFiles" class="info-text">Refreshing file list...</p>
             <p v-if="errorFiles" class="error-text">{{ errorFiles }}</p>
 
-            <!-- Show paginated files -->
             <ul v-if="paginatedFiles.length > 0" class="file-list">
               <li
                 v-for="(fileObj, index) in paginatedFiles"
@@ -52,22 +49,14 @@
                       v-model="selectedFiles"
                       :value="fileObj"
                     />
-                    <span class="file-name truncate">
-                      {{ fileObj.fileName }}
-                    </span>
+                    <span class="file-name truncate">{{ fileObj.fileName }}</span>
                   </label>
-                  <p
-                    class="file-path truncate"
-                    :title="fileObj.folder + fileObj.company"
-                  >
+                  <p class="file-path truncate" :title="fileObj.folder + fileObj.company">
                     {{ fileObj.folder }}{{ fileObj.company }}
                   </p>
                 </div>
                 <div class="file-actions">
-                  <button
-                    @click="deleteFile(fileObj)"
-                    class="btn action-btn danger"
-                  >
+                  <button @click="deleteFile(fileObj)" class="btn action-btn danger">
                     Delete
                   </button>
                 </div>
@@ -97,9 +86,7 @@
             >
               Prev
             </button>
-            <span class="page-info">
-              Page {{ currentPage }} of {{ totalPages }}
-            </span>
+            <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
             <button
               class="btn page-btn"
               :disabled="currentPage === totalPages"
@@ -111,7 +98,7 @@
         </div>
       </div>
 
-      <!-- Trigger Process -->
+      <!-- TRIGGER PROCESS CARD -->
       <div class="card process-runner">
         <div class="card-header">
           <h2>Trigger Process</h2>
@@ -130,8 +117,12 @@
           <!-- If user selects "Run Files" -->
           <div v-if="selectedPipeline === 'runFiles'" class="pipeline-options">
             <label class="date-label">
-              Select Date:
-              <input type="date" v-model="pipelineOptions.runFilesDate" />
+              Select Date/Time:
+              <!-- Users picks e.g. "2025-01-29T10:21" -->
+              <input
+                type="datetime-local"
+                v-model="pipelineOptions.runFilesDate"
+              />
             </label>
           </div>
 
@@ -178,28 +169,29 @@ export default {
   name: "RunPipelinesView",
   data() {
     return {
-      // File data
+      // FILES
       files: [],
       selectedFiles: [],
       loadingFiles: false,
       errorFiles: null,
       currentPage: 1,
       itemsPerPage: 5,
+      selectAll: false,
 
-      // Pipeline data
+      // PIPELINE
       selectedPipeline: "runFiles",
       pipelineOptions: {
-        runFilesDate: this.getToday(),
+        // "Run Files" => auto-populate current date/time in "YYYY-MM-DDTHH:MM"
+        runFilesDate: this.getLocalDateTime(),
+        // "Update Database"
         startDate: this.getOneMonthAgo(),
         endDate: this.getToday(),
+        // "Binder"
         binderDate: this.getFirstOfMonth(),
       },
       loadingPipeline: false,
       responsePipeline: null,
       errorPipeline: null,
-
-      // For "select all" toggle
-      selectAll: false,
     };
   },
   computed: {
@@ -222,9 +214,10 @@ export default {
     },
   },
   methods: {
+    // Date Helpers
     getToday() {
       const now = new Date();
-      return now.toISOString().split("T")[0];
+      return now.toISOString().split("T")[0]; // "YYYY-MM-DD"
     },
     getOneMonthAgo() {
       const date = new Date();
@@ -236,33 +229,54 @@ export default {
       date.setDate(1);
       return date.toISOString().split("T")[0];
     },
-    // Return today's date in yyyy-mm-dd format
-    getCurrentDate() {
+
+    /**
+     * For "runFilesDate" default, returns "YYYY-MM-DDTHH:MM"
+     * e.g. "2025-01-29T10:21"
+     */
+    getLocalDateTime() {
       const now = new Date();
-      return now.toISOString().split("T")[0];
-    },
-    // Return current date+time in yyyy-mm-ddThh:mm format
-    getCurrentDateTime() {
-      const now = new Date();
-      return now.toISOString().slice(0, 16);
+      // Shift to local time
+      const offsetMs = now.getTime() - now.getTimezoneOffset() * 60000;
+      const local = new Date(offsetMs);
+      return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
     },
 
+    /**
+     * Reformat "YYYY-MM-DDTHH:MM" -> "YYYY-MM-DDTHH:MM:SS.ffffff"
+     * So if user picks "2025-01-29T10:21",
+     * We convert => "2025-01-29T10:21:00.000000"
+     */
+    formatDateTimeWithMicros(dtLocal) {
+      if (!dtLocal) return null;
+      // parse
+      const dateObj = new Date(dtLocal);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const hour = String(dateObj.getHours()).padStart(2, "0");
+      const minute = String(dateObj.getMinutes()).padStart(2, "0");
+      const second = String(dateObj.getSeconds()).padStart(2, "0");
+      const micros = "000001"; // or parse from ms if you want partial
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}.${micros}`;
+    },
+
+    // File Data
     async fetchFiles() {
       this.loadingFiles = true;
       this.errorFiles = null;
       try {
         const response = await axios.get("https://dev.rocox.co/api/fetch_files");
         if (!Array.isArray(response.data)) {
-          throw new Error("Expected array of file paths from the server");
+          throw new Error("Expected an array of file paths from server");
         }
-        // Transform each file path into an object
-        this.files = response.data.map((filePath) => {
-          const parts = filePath.split("/");
+        this.files = response.data.map((rawPath) => {
+          const parts = rawPath.split("/");
           const fileName = parts.pop();
           const company = parts.pop() || "";
           const folder = parts.pop() || "";
           return {
-            path: filePath,
+            path: rawPath,
             fileName,
             folder: folder ? folder + " => " : "",
             company,
@@ -274,7 +288,6 @@ export default {
         this.loadingFiles = false;
       }
     },
-
     toggleSelectAll() {
       if (this.selectAll) {
         this.selectedFiles = [...this.files];
@@ -282,11 +295,22 @@ export default {
         this.selectedFiles = [];
       }
     },
+    async deleteFile(fileObj) {
+      try {
+        await axios.post("https://dev.rocox.co/api/delete_files", {
+          filePath: fileObj.path,
+        });
+        this.fetchFiles();
+      } catch (error) {
+        this.errorFiles = "Failed to delete file.";
+      }
+    },
 
+    // Pipeline
     async runSelectedPipeline() {
       this.loadingPipeline = true;
-      this.responsePipeline = null;
       this.errorPipeline = null;
+      this.responsePipeline = null;
 
       try {
         let endpoint = "";
@@ -294,16 +318,21 @@ export default {
 
         if (this.selectedPipeline === "runFiles") {
           endpoint = "run_files";
+
+          // Convert user-chosen "2025-01-29T10:21" => "2025-01-29T10:21:00.000000"
+          const finalDate = this.formatDateTimeWithMicros(
+            this.pipelineOptions.runFilesDate
+          );
+
           payload = {
             paths_to_process: this.selectedFiles.map((f) => f.path),
-            runDate: this.pipelineOptions.runFilesDate,
+            runDate: finalDate,
           };
         } else if (this.selectedPipeline === "updateDatabase") {
           endpoint = "update_sql";
           payload = {
             startDate: this.pipelineOptions.startDate,
             endDate: this.pipelineOptions.endDate,
-            getBinder: 0,
           };
         } else if (this.selectedPipeline === "binderVerification") {
           endpoint = "run_binder_verification";
@@ -319,23 +348,10 @@ export default {
         );
         this.responsePipeline = resp.data.message || "Pipeline executed successfully!";
       } catch (error) {
-        this.errorPipeline = error.response?.data?.message || "Pipeline execution failed.";
+        this.errorPipeline =
+          error.response?.data?.message || "Pipeline execution failed.";
       } finally {
         this.loadingPipeline = false;
-      }
-    },
-
-    // Demo for deleting a file (not required to change for pipeline logic)
-    async deleteFile(fileObj) {
-      try {
-        await axios.post("https://dev.rocox.co/api/delete_files", {
-          filePath: fileObj.path,
-        });
-        // Refresh after delete
-        this.fetchFiles();
-      } catch (error) {
-        console.error("Error deleting file:", error.message);
-        this.errorFiles = "Failed to delete file.";
       }
     },
   },
@@ -344,26 +360,14 @@ export default {
 
 <style>
 /* Container */
-/* Updated styles for better contrast */
 .page-container {
   background-color: #f3f4f6;
-  color: #333; /* Dark text for readability */
+  color: #333;
   padding: 2rem;
   border-radius: 8px;
   font-family: "Segoe UI", sans-serif;
 }
 
-.header h1 {
-  color: #111; /* Ensures the title is highly visible */
-}
-
-.card {
-  background: #fff;
-  color: #333; /* Dark text */
-  /* Remaining styles remain unchanged */
-}
-
-/* Header */
 .header {
   text-align: center;
   margin-bottom: 2rem;
@@ -374,7 +378,7 @@ export default {
   color: #555;
 }
 
-/* Grid Layout */
+/* Layout grid */
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -386,8 +390,15 @@ export default {
   }
 }
 
-/* Cards */
-
+/* Card */
+.card {
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  box-shadow: 0 0 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
 .card-header {
   padding: 1.2rem;
   border-bottom: 1px solid #e5e7eb;
@@ -407,7 +418,11 @@ export default {
   flex: 1;
 }
 
-/* File Management */
+/* File Management Card */
+.file-management {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
 .controls {
   display: flex;
   align-items: center;
@@ -427,7 +442,6 @@ export default {
   border-radius: 6px;
   padding: 0.8rem;
   margin-bottom: 0.8rem;
-
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -484,15 +498,14 @@ export default {
   font-size: 0.9rem;
 }
 
-/* Trigger Process */
-.dropdown-label {
-  display: block;
-  margin-bottom: 0.5rem;
+/* Process Runner Card */
+.process-runner .dropdown-label {
+  margin-bottom: 0.4rem;
   font-weight: 600;
 }
 .pipeline-select {
   width: 100%;
-  padding: 0.4rem;
+  padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid #ccc;
   font-size: 0.9rem;
@@ -556,34 +569,12 @@ export default {
 }
 
 /* Utility */
-.preserve-spaces {
-  white-space: pre;
-}
-
-.card.file-management {
-  min-height: calc(100vh - 250px); /* Deduct header space */
-  max-height: calc(100vh - 250px);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.file-name, .file-path {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
-}
-
-/* Keep delete button stationary */
-.file-actions {
-  margin-left: auto;
-}
-
-/* Truncated text styles */
 .truncate {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.file-actions {
+  margin-left: auto;
 }
 </style>
