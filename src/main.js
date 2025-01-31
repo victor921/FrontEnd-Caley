@@ -8,6 +8,7 @@ import PrimeVue from "primevue/config";
 import Aura from '@primevue/themes/aura';
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
+import { useUserStore } from '@/stores/userStore'
 
 const app = createApp(App)
 const pinia = createPinia();
@@ -24,4 +25,8 @@ app.use(PrimeVue, {
     }
   }
 });
+
+const userStore = useUserStore()
+userStore.loadUserFromStorage()
+
 app.mount('#app')

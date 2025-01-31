@@ -1,203 +1,137 @@
 <template>
-  <div>
-    <!-- Google Sign-In -->
-    <div v-if="!userInfo && !isSigningOut" class="google-signin">
-      <div
-        id="g_id_onload"
-        :data-client_id="clientId"
-        data-callback="handleCredentialResponse"
-        data-context="signin"
-        data-ux_mode="redirect"
-      ></div>
-      <h1>Please sign in to use other tabs</h1>
-      <div class="g_id_signin" data-type="standard" data-size="large"></div>
-      <p v-if="isSigningIn" class="loading-message">Signing you in, please wait...</p>
-    </div>
+  <div class="login-container">
+    <div class="login-card">
+      <img src="@/assets/logo2.png" alt="Company Logo" class="company-logo" />
+      <h1>Welcome to CAS Portal</h1>
+      <p class="login-subtitle">Please sign in with Google</p>
 
-    <!-- Sign Out Animation -->
-    <div v-else-if="isSigningOut">
-      <div class="signout-message">
-        <div class="signout-card">
-          <h2>Signing you out...</h2>
-          <div class="spinner"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Profile Icon -->
-    <div v-else>
-      <div class="profile-icon-container" @click="togglePopover">
-        <img
-          class="profile-icon"
-          :src="userInfo?.picture || "
-          alt="User Avatar"
-        />
+      <!-- Google Sign-In Button Wrapper -->
+      <div class="google-signin-wrapper">
+        <div id="g_id_signin"></div>
       </div>
 
-      <!-- Popover with Logout Option -->
-      <div v-if="showPopover" class="popover">
-        <p class="user-name">{{ userInfo.email }}</p>
-        <button @click="signOut" class="button signout-button">Sign Out</button>
-      </div>
+      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     </div>
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/userStore";
+import jwtDecode from "jwt-decode";
 
+const router = useRouter();
 const userStore = useUserStore();
+const errorMessage = ref("");
 
-export default {
-  data() {
-    return {
-      clientId: "91719351588-ljjoae9ggl3i7n0jftrso8sbbn43uckf.apps.googleusercontent.com", // Replace with your actual Google Client ID
-      userInfo: null,
-      isSigningOut: false,
-      isSigningIn: false,
-      showPopover: false, // Control for popover visibility
+// Callback function for Google Sign-In
+function handleCredentialResponse(response) {
+  try {
+    const token = response.credential;
+    const decoded = jwtDecode(token);
+
+    const userData = {
+      token,
+      email: decoded.email,
+      name: decoded.name || decoded.given_name,
+      tokenExpiration: decoded.exp
+        ? new Date(decoded.exp * 1000).toISOString()
+        : null,
     };
-  },
-  mounted() {
-    this.loadUserFromStorage();
-    this.initializeGoogleSignIn();
-  },
-  methods: {
-    togglePopover() {
-      this.showPopover = !this.showPopover;
-    },
-    loadUserFromStorage() {
-      const storedUserInfo = localStorage.getItem("userInfo");
-      if (storedUserInfo) {
-        try {
-          const userInfo = JSON.parse(storedUserInfo);
-          const tokenExpiration = new Date(userInfo.tokenExpiration);
-          if (new Date() < tokenExpiration) {
-            this.userInfo = userInfo;
-            userStore.setUser(this.userInfo);
-          } else {
-            console.warn("Token expired. Clearing user data.");
-            localStorage.removeItem("userInfo");
-          }
-        } catch (error) {
-          console.error("Error parsing stored user info:", error);
-          localStorage.removeItem("userInfo");
-        }
-      }
-    },
-    initializeGoogleSignIn() {
-      if (this.isGoogleSignInInitialized || !window.google) return;
 
-      window.google.accounts.id.initialize({
-        client_id: this.clientId,
-        callback: this.handleCredentialResponse,
-        auto_select: !!this.userInfo,
-      });
+    userStore.signIn(userData);
+    router.push("/home").then(() => {
+      window.location.reload(); // Ensure reactive changes are applied
+    });
+  } catch (err) {
+    console.error("Error in handleCredentialResponse:", err);
+    errorMessage.value = "Sign-in failed. Please try again.";
+  }
+}
 
-      window.google.accounts.id.renderButton(document.querySelector(".g_id_signin"), {
-        theme: "outline",
-        size: "large",
-        text: "signin_with",
-      });
+onMounted(() => {
+  if (
+    !window.google ||
+    !window.google.accounts ||
+    !window.google.accounts.id
+  ) {
+    errorMessage.value = "Google script not loaded. Check index.html.";
+    return;
+  }
 
-      window.google.accounts.id.prompt();
-    },
-    async handleCredentialResponse(response) {
-      try {
-        this.isSigningIn = true;
+  window.google.accounts.id.initialize({
+    client_id:
+      "91719351588-ljjoae9ggl3i7n0jftrso8sbbn43uckf.apps.googleusercontent.com", // Replace with your actual client ID
+    callback: handleCredentialResponse,
+  });
 
-        const base64Url = response.credential.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
+  window.google.accounts.id.renderButton(
+    document.getElementById("g_id_signin"),
+    {
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      shape: "rectangular",
+      width: 280,
+    }
+  );
 
-        const userInfo = JSON.parse(jsonPayload);
-
-        // Add token expiration (example: token valid for 1 hour)
-        const tokenExpiration = new Date();
-        tokenExpiration.setSeconds(tokenExpiration.getSeconds() + 3600);
-        this.userInfo = { ...userInfo, tokenExpiration };
-
-        localStorage.setItem("userInfo", JSON.stringify(this.userInfo));
-        userStore.setUser(this.userInfo);
-      } catch (error) {
-        console.error("Error decoding user info:", error);
-        alert("An error occurred during sign-in. Please try again.");
-      } finally {
-        this.isSigningIn = false;
-      }
-    },
-    async signOut() {
-      this.isSigningOut = true;
-      setTimeout(() => {
-        window.google.accounts.id.disableAutoSelect();
-        this.userInfo = null;
-        userStore.clearUser();
-        this.isSigningOut = false;
-        localStorage.removeItem("userInfo");
-        window.location.reload(); // Refresh the page on sign out
-      }, 2000);
-    },
-  },
-};
+  // Optionally, display the One Tap prompt
+  // window.google.accounts.id.prompt();
+});
 </script>
 
 <style scoped>
-/* Profile Icon Container */
-.profile-icon-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  cursor: pointer;
-  z-index: 1000;
+/* Container */
+.login-container {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
 }
 
-.profile-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 2px solid #ddd;
-  transition: transform 0.3s ease;
+/* Login Card */
+.login-card {
+  background: #fff;
+  width: 400px;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.profile-icon:hover {
-  transform: scale(1.1);
+/* Company Logo */
+.company-logo {
+  width: 100px;
+  height: auto;
+  margin-bottom: 1rem;
 }
 
-/* Popover */
-.popover {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  width: 200px;
-  z-index: 1000;
+/* Google Sign-In Button Wrapper */
+.google-signin-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 1rem 0;
 }
 
-.user-name {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 10px;
+/* Error Message */
+.error-message {
+  margin-top: 1rem;
+  color: #dc3545;
+  font-weight: 500;
 }
 
-.button.signout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.button.signout-button:hover {
-  background-color: #d32f2f;
+/* Additional Styling for Responsiveness (Optional) */
+@media (max-width: 500px) {
+  .login-card {
+    width: 90%;
+    padding: 1.5rem;
+  }
 }
 </style>

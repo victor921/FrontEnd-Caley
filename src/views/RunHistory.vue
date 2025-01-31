@@ -28,7 +28,7 @@
         >
           {{ file.displayName }}
         </a>
-        <!-- The status badge has a background color for RUNNING in the file list -->
+        <!-- Status Badge -->
         <span :class="statusBadgeClass(file.status)" class="status-badge">
           {{ file.status }}
         </span>
@@ -37,14 +37,29 @@
     <p v-else class="loading-text">No valid files to display.</p>
 
     <!-- Modal for Detailed Info -->
-    <div v-if="isModalVisible" class="modal-overlay">
-      <div class="modal-content">
-        <!-- Title with no background color -->
-        <h2 class="modal-title">File Details</h2>
+    <div
+      v-if="isModalVisible"
+      class="modal-overlay"
+      @click.self="closeModal"
+      ref="modalOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div
+        class="modal-content"
+        ref="modalContent"
+        tabindex="-1"
+        @keydown.tab.prevent="handleTab"
+      >
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h2 class="modal-title" id="modal-title">File Details</h2>
+          <button @click="closeModal" class="close-button" aria-label="Close Modal">&times;</button>
+        </div>
 
         <!-- Status Section -->
         <div class="status-section">
-          <!-- No background for RUNNING text in the modal -->
           <p v-if="status === 'RUNNING'" class="status-running-text">
             <span class="spinner small-spinner"></span>
             Job is currently running...
@@ -65,11 +80,16 @@
 
         <!-- Real-time countdown for RUNNING status -->
         <div v-if="status === 'RUNNING'" class="update-timer">
-          <p>Page updating in {{ pollingCountdown }}..</p>
+          <p>Page updating in {{ pollingCountdown }} seconds...</p>
         </div>
 
         <!-- Results Section -->
         <div class="modal-body">
+          <!-- Optional Company Information -->
+          <div v-if="selectedFileDetails.company" class="company-info">
+            <p><strong>Company:</strong> {{ selectedFileDetails.company }}</p>
+          </div>
+
           <!-- FAIL scenario with a simple string in RESULT -->
           <div
             v-if="status === 'FAIL' && resultIsString"
@@ -88,9 +108,10 @@
             </p>
           </div>
 
-          <!-- FAIL or other statuses with RESULT as an array -->
+          <!-- SUCCESS or other statuses with RESULT as an array -->
           <ul
             v-else-if="selectedFileDetails.RESULT && Array.isArray(selectedFileDetails.RESULT) && selectedFileDetails.RESULT.length"
+            class="results-list"
           >
             <li
               v-for="(output, i) in selectedFileDetails.RESULT"
@@ -104,11 +125,22 @@
                 <strong>Error Details:</strong> {{ output.error_details }}
               </p>
               <p>
-                <strong>Notebook Path: </strong>
-                <span> {{ (output.parameters && output.parameters.notebook_path) ? output.parameters.notebook_path : "N/A" }}</span>
+                <strong>Notebook Path:</strong>
+                <span>
+                  {{
+                    (output.parameters && output.parameters.notebook_path)
+                      ? output.parameters.notebook_path
+                      : "N/A"
+                  }}
+                </span>
               </p>
               <p>
-                <strong>Source:</strong> {{ (output.parameters && output.parameters.source) ? output.parameters.source : "N/A" }}
+                <strong>Source:</strong>
+                {{
+                  (output.parameters && output.parameters.source)
+                    ? output.parameters.source
+                    : "N/A"
+                }}
               </p>
               <p v-if="output.run_page_url">
                 <strong>Run Page:</strong>
@@ -129,13 +161,15 @@
         </div>
 
         <!-- Close Button -->
-        <button @click="closeModal" class="close-button">Close</button>
+        <button @click="closeModal" class="close-button-bottom">Close</button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { createFocusTrap } from 'focus-trap';
+
 export default {
   data() {
     return {
@@ -152,6 +186,9 @@ export default {
       pollingInterval: null, // Interval reference
       pollingCountdown: 0, // Countdown in seconds for next poll
       pollIntervalSeconds: 10, // Interval for re-fetch in seconds
+
+      // Focus Trap
+      trap: null,
     };
   },
   computed: {
@@ -168,7 +205,9 @@ export default {
     async loadFiles() {
       this.filesLoading = true;
       try {
-        const response = await fetch("https://dev.rocox.co/api/fetch_files?folder=logs");
+        const response = await fetch(
+          "https://dev.rocox.co/api/fetch_files?folder=logs"
+        );
         if (!response.ok) {
           throw new Error(`Could not load files. HTTP ${response.status}`);
         }
@@ -187,7 +226,10 @@ export default {
               if (isNaN(dateObj.getTime())) {
                 throw new Error("Invalid timestamp");
               }
-              const options = { timeZone: "America/New_York", timeZoneName: "short" };
+              const options = {
+                timeZone: "America/New_York",
+                timeZoneName: "short",
+              };
               displayName = dateObj.toLocaleString("en-US", options);
             } catch {
               return null;
@@ -205,7 +247,9 @@ export default {
         });
 
         // Fetch the actual status from get_file_content
-        await Promise.all(this.formattedFiles.map((file) => this.fetchFileStatus(file)));
+        await Promise.all(
+          this.formattedFiles.map((file) => this.fetchFileStatus(file))
+        );
       } catch (error) {
         console.error("Error loading files:", error);
         alert("Error loading run history. Please try again later.");
@@ -216,7 +260,9 @@ export default {
 
     async fetchFileStatus(file) {
       try {
-        const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${file.fullPath}`);
+        const resp = await fetch(
+          `https://dev.rocox.co/api/get_file_content?path=${file.fullPath}`
+        );
         if (!resp.ok) {
           throw new Error(`Status fetch failed with HTTP ${resp.status}`);
         }
@@ -232,7 +278,9 @@ export default {
       this.stopPolling();
 
       try {
-        const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${filePath}`);
+        const resp = await fetch(
+          `https://dev.rocox.co/api/get_file_content?path=${filePath}`
+        );
         if (!resp.ok) {
           throw new Error(`Failed to open file. HTTP ${resp.status}`);
         }
@@ -244,13 +292,27 @@ export default {
         this.isModalVisible = true;
 
         // Update local file status
-        const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath);
+        const fileRef = this.formattedFiles.find(
+          (f) => f.fullPath === filePath
+        );
         if (fileRef) fileRef.status = this.status;
 
         // If status is RUNNING, start polling
         if (this.status === "RUNNING") {
           this.startPolling(filePath);
         }
+
+        // Initialize focus trap
+        this.$nextTick(() => {
+          if (this.isModalVisible) {
+            this.trap = createFocusTrap(this.$refs.modalContent, {
+              escapeDeactivates: true,
+              clickOutsideDeactivates: true,
+              onDeactivate: this.closeModal,
+            });
+            this.trap.activate();
+          }
+        });
       } catch (error) {
         console.error("Error fetching file content:", error);
         alert("Could not load file details. Please try again later.");
@@ -280,7 +342,9 @@ export default {
               return;
             }
 
-            const resp = await fetch(`https://dev.rocox.co/api/get_file_content?path=${filePath}`);
+            const resp = await fetch(
+              `https://dev.rocox.co/api/get_file_content?path=${filePath}`
+            );
             if (!resp.ok) {
               throw new Error(`Poll error. HTTP ${resp.status}`);
             }
@@ -289,7 +353,9 @@ export default {
             this.status = fileData.STATUS;
 
             // Update local list
-            const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath);
+            const fileRef = this.formattedFiles.find(
+              (f) => f.fullPath === filePath
+            );
             if (fileRef) fileRef.status = fileData.STATUS;
 
             if (this.status !== "RUNNING") {
@@ -311,6 +377,12 @@ export default {
       }
       // Reset countdown
       this.pollingCountdown = 0;
+
+      // Deactivate focus trap if active
+      if (this.trap) {
+        this.trap.deactivate();
+        this.trap = null;
+      }
     },
 
     closeModal() {
@@ -321,7 +393,10 @@ export default {
     },
 
     updateCurrentDatetime() {
-      const options = { timeZone: "America/New_York", timeZoneName: "short" };
+      const options = {
+        timeZone: "America/New_York",
+        timeZoneName: "short",
+      };
       this.currentDatetime = new Date().toLocaleString("en-US", options);
     },
 
@@ -341,21 +416,20 @@ export default {
       }
     },
 
-    statusClass(status) {
-      // This is optional if you want to keep color-coded text
-      // for the pop-up, you can unify or separate.
-      // We'll just unify for now:
-      return this.statusBadgeClass(status);
+    handleTab(e) {
+      // Prevent focus from leaving the modal
+      e.preventDefault();
     },
   },
   mounted() {
     this.updateCurrentDatetime();
     this.loadFiles();
     // Refresh current datetime every second
-    setInterval(this.updateCurrentDatetime, 1000);
+    this.datetimeInterval = setInterval(this.updateCurrentDatetime, 1000);
   },
   beforeDestroy() {
     this.stopPolling();
+    clearInterval(this.datetimeInterval);
   },
 };
 </script>
@@ -398,17 +472,20 @@ export default {
   margin-top: 40px;
 }
 .loading-state .spinner {
-  border: 6px solid rgba(0,0,0,0.1);
+  border: 6px solid rgba(0, 0, 0, 0.1);
   border-top: 6px solid #007bff;
   border-radius: 50%;
   width: 30px;
   height: 30px;
   animation: spin 1s linear infinite;
-  margin-bottom: 10px;
 }
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* File list */
@@ -489,19 +566,20 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 999;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999; /* Increased z-index to ensure it appears above all other elements */
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 1rem;
 }
+
 .modal-content {
   background: #fff;
   max-width: 600px;
   width: 100%;
-  max-height: 80vh;
-  overflow: hidden;
+  max-height: 80vh; /* 80% of viewport height */
+  overflow-y: auto; /* Scroll when content exceeds max-height */
   border-radius: 8px;
   position: relative;
   padding: 20px;
@@ -509,17 +587,32 @@ export default {
   flex-direction: column;
 }
 
-/* Title with no background color */
+/* Modal Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .modal-title {
-  margin: 0 0 10px 0;
-  padding: 0;
+  margin: 0;
   font-size: 20px;
   color: #333;
 }
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.3s;
+}
+.close-button:hover {
+  color: #333;
+}
 
-/* Status text in the modal (RUNNING => no background) */
+/* Status text in the modal */
 .status-running-text {
-  color: #007bff; /* or #333 if you prefer dark text */
+  color: #007bff;
   display: flex;
   align-items: center;
   font-weight: bold;
@@ -537,12 +630,12 @@ export default {
   font-weight: bold;
 }
 
-/* spinner for small usage */
+/* Spinner for small usage */
 .spinner.small-spinner {
   width: 14px;
   height: 14px;
   margin-right: 8px;
-  border: 3px solid rgba(0,0,0,0.1);
+  border: 3px solid rgba(0, 0, 0, 0.1);
   border-top: 3px solid #007bff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -559,10 +652,17 @@ export default {
 /* Modal body */
 .modal-body {
   overflow-y: auto;
-  flex: 1;
+  flex: 1; /* Take up remaining space */
   border-top: 1px solid #eee;
   margin-top: 10px;
   padding-top: 10px;
+}
+.company-info {
+  margin-bottom: 10px;
+}
+.results-list {
+  list-style: none;
+  padding: 0;
 }
 .output-item {
   margin-bottom: 15px;
@@ -571,8 +671,8 @@ export default {
   margin-bottom: 15px;
 }
 
-/* Close button */
-.close-button {
+/* Close button at the bottom */
+.close-button-bottom {
   align-self: flex-end;
   background: #ff4d4f;
   color: #fff;
@@ -583,8 +683,9 @@ export default {
   margin-top: 10px;
   font-weight: bold;
   font-size: 14px;
+  transition: background-color 0.3s;
 }
-.close-button:hover {
+.close-button-bottom:hover {
   background: #d9363e;
 }
 
@@ -599,9 +700,13 @@ export default {
   color: #0056b3;
 }
 
-/* Keyframes for spinner, reuse same as above */
+/* Keyframes for spinner */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
