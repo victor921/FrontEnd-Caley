@@ -99,9 +99,10 @@
       <div v-if="isMVR" class="fields-section">
         <h3>MVR Fields</h3>
         <div class="fields-scroll">
+          <!-- Use index as key so that editing the key does not recreate the element -->
           <div
-            v-for="(mappedVal, key) in mvrInputs"
-            :key="key"
+            v-for="(mappedVal, key, index) in mvrInputs"
+            :key="index"
             class="field-entry"
           >
             <input
@@ -154,9 +155,10 @@
       <div v-if="isStatement" class="fields-section">
         <h3>Statement Fields</h3>
         <div class="fields-scroll">
+          <!-- Use index as key -->
           <div
-            v-for="(mappedVal, key) in statementInputs"
-            :key="key"
+            v-for="(mappedVal, key, index) in statementInputs"
+            :key="index"
             class="field-entry"
           >
             <input
@@ -294,7 +296,7 @@ export default {
       originalCompany: {},
       simpleCompanyInput: "",
 
-      // Local store for MVR and Statement fields
+      // Local store for MVR and Statement fields (stored as objects)
       mvrInputs: {},
       statementInputs: {},
 
@@ -315,6 +317,7 @@ export default {
         "premium",
         "gross_comission",
         "effective_date",
+        "transaction_type",
         "fee",
         "User",
         "charge",
@@ -441,7 +444,7 @@ export default {
     // MVR Field methods
     addMvrField() {
       if (this.newMvrKey.trim() && this.newMvrValue.trim()) {
-        this.mvrInputs[this.newMvrKey.trim()] = this.newMvrValue.trim();
+        this.$set(this.mvrInputs, this.newMvrKey.trim(), this.newMvrValue.trim());
         this.newMvrKey = "";
         this.newMvrValue = "";
       } else {
@@ -449,20 +452,21 @@ export default {
       }
     },
     removeMvrField(key) {
-      delete this.mvrInputs[key];
+      this.$delete(this.mvrInputs, key);
     },
     updateMvrKey(event, oldKey) {
       const newKey = event.target.value;
-      if (!newKey.trim()) return;
+      // Allow even empty strings so that user can correct errors without re-clicking
+      if (newKey === oldKey) return;
       const oldVal = this.mvrInputs[oldKey];
-      delete this.mvrInputs[oldKey];
-      this.mvrInputs[newKey.trim()] = oldVal;
+      this.$delete(this.mvrInputs, oldKey);
+      this.$set(this.mvrInputs, newKey, oldVal);
     },
 
     // Statement Field methods
     addStatementField() {
       if (this.newStatementKey.trim() && this.newStatementValue.trim()) {
-        this.statementInputs[this.newStatementKey.trim()] = this.newStatementValue.trim();
+        this.$set(this.statementInputs, this.newStatementKey.trim(), this.newStatementValue.trim());
         this.newStatementKey = "";
         this.newStatementValue = "";
       } else {
@@ -470,14 +474,14 @@ export default {
       }
     },
     removeStatementField(key) {
-      delete this.statementInputs[key];
+      this.$delete(this.statementInputs, key);
     },
     updateStatementKey(event, oldKey) {
       const newKey = event.target.value;
-      if (!newKey.trim()) return;
+      if (newKey === oldKey) return;
       const oldVal = this.statementInputs[oldKey];
-      delete this.statementInputs[oldKey];
-      this.statementInputs[newKey.trim()] = oldVal;
+      this.$delete(this.statementInputs, oldKey);
+      this.$set(this.statementInputs, newKey, oldVal);
     },
 
     // Save changes (for add or edit)
