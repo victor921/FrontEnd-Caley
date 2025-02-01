@@ -2,16 +2,31 @@
   <div class="settings-container">
     <h1 class="title">Company Metadata Management</h1>
 
-    <!-- Step 1: Choose Action -->
+    <!-- Action Buttons -->
     <div class="action-selection">
-      <button @click="chooseAction('add')" class="action-btn">➕ Add New Company</button>
-      <button @click="chooseAction('edit')" class="action-btn">✏️ Modify Existing Company</button>
-      <button @click="chooseAction('view')" class="action-btn">👀 View Mappings</button>
+      <button @click="chooseAction('add')" class="action-btn">
+        ➕ Add New Company
+      </button>
+      <button @click="chooseAction('edit')" class="action-btn">
+        ✏️ Modify Existing Company
+      </button>
+      <button @click="chooseAction('view')" class="action-btn">
+        👀 View Mappings
+      </button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div v-if="loading" class="load-section">
+      <p>Loading company data...</p>
+    </div>
+    <!-- Error Message -->
+    <div v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
     </div>
 
     <!-- Modify Existing or View Mappings: Choose a company -->
     <div
-      v-if="(action === 'edit' || action === 'view') && companyData.length"
+      v-if="(action === 'edit' || action === 'view') && companyData.length && !loading"
       class="edit-section"
     >
       <h2 class="subtitle">
@@ -96,10 +111,7 @@
               @input="updateMvrKey($event, key)"
               placeholder="Field Key"
             />
-            <select
-              v-model="mvrInputs[key]"
-              class="input-field dropdown"
-            >
+            <select v-model="mvrInputs[key]" class="input-field dropdown">
               <option value="" disabled>Select Mapped Field</option>
               <option
                 v-for="option in fieldOptions"
@@ -109,10 +121,12 @@
                 {{ option }}
               </option>
             </select>
-            <button @click="removeMvrField(key)" class="remove-btn">✖</button>
+            <button @click="removeMvrField(key)" class="remove-btn">
+              ✖
+            </button>
           </div>
         </div>
-        <!-- Add new MVR Key/Value -->
+        <!-- Add new MVR Field -->
         <div class="add-new-fields">
           <input
             type="text"
@@ -122,7 +136,11 @@
           />
           <select v-model="newMvrValue" class="input-field dropdown">
             <option value="" disabled>Select Mapped Field</option>
-            <option v-for="option in fieldOptions" :key="option" :value="option">
+            <option
+              v-for="option in fieldOptions"
+              :key="option"
+              :value="option"
+            >
               {{ option }}
             </option>
           </select>
@@ -148,19 +166,22 @@
               @input="updateStatementKey($event, key)"
               placeholder="Field Key"
             />
-            <select
-              v-model="statementInputs[key]"
-              class="input-field dropdown"
-            >
+            <select v-model="statementInputs[key]" class="input-field dropdown">
               <option value="" disabled>Select Mapped Field</option>
-              <option v-for="option in fieldOptions" :key="option" :value="option">
+              <option
+                v-for="option in fieldOptions"
+                :key="option"
+                :value="option"
+              >
                 {{ option }}
               </option>
             </select>
-            <button @click="removeStatementField(key)" class="remove-btn">✖</button>
+            <button @click="removeStatementField(key)" class="remove-btn">
+              ✖
+            </button>
           </div>
         </div>
-        <!-- Add new Statement Key/Value -->
+        <!-- Add new Statement Field -->
         <div class="add-new-fields">
           <input
             type="text"
@@ -170,7 +191,11 @@
           />
           <select v-model="newStatementValue" class="input-field dropdown">
             <option value="" disabled>Select Mapped Field</option>
-            <option v-for="option in fieldOptions" :key="option" :value="option">
+            <option
+              v-for="option in fieldOptions"
+              :key="option"
+              :value="option"
+            >
               {{ option }}
             </option>
           </select>
@@ -226,15 +251,32 @@
         <p v-else>No Statement fields defined.</p>
       </div>
     </div>
+
+    <!-- Last Edited Log Section -->
+    <div class="log-section" v-if="lastEditedLog">
+      <p>
+        Last Edited by:
+        <span class="log-user" @click="toggleLogDetails" style="cursor: pointer; text-decoration: underline;">
+          {{ lastEditedLog.user_email }}
+        </span>
+        on {{ formatDate(lastEditedLog.change_timestamp) }}
+      </p>
+      <div v-if="showLogDetails" class="log-details">
+        <p>Action: {{ lastEditedLog.action }}</p>
+        <!-- Diff output with highlighted changes -->
+        <div class="diff-container" v-html="diffHtml"></div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import axios from "axios";
-import Button from "primevue/button";
+import { useUserStore } from "@/stores/userStore";
+import { diffJson } from "diff";
 
 export default {
-  name: "SettingsView",
+  name: "ConfigurationView",
   data() {
     return {
       // action can be "add", "edit", or "view"
@@ -248,23 +290,25 @@ export default {
         mvr_fields: {},
         statement_fields: {},
       },
+      // Store original company data for logging purposes when editing
+      originalCompany: {},
       simpleCompanyInput: "",
 
-      // local store for MVR and statement fields
+      // Local store for MVR and Statement fields
       mvrInputs: {},
       statementInputs: {},
 
-      // new field inputs
+      // New field inputs
       newMvrKey: "",
       newMvrValue: "",
       newStatementKey: "",
       newStatementValue: "",
 
-      // toggles
+      // Toggles
       isMVR: false,
       isStatement: false,
 
-      // Predefined field map
+      // Predefined field options (carrier_name added)
       fieldOptions: [
         "full_name",
         "order_date",
@@ -276,12 +320,53 @@ export default {
         "charge",
         "credit",
         "policy_statement",
+        "carrier_name"
       ],
 
       loading: false,
       errorMessage: "",
       saveMessage: "",
+
+      // Log info
+      lastEditedLog: null,
+      showLogDetails: false,
     };
+  },
+  computed: {
+    diffHtml() {
+      if (!this.lastEditedLog) return "";
+      // Attempt to parse the JSON values; if parsing fails, fall back to raw preformatted text.
+      let oldParsed, newParsed;
+      try {
+        oldParsed = this.lastEditedLog.old_value
+          ? JSON.parse(this.lastEditedLog.old_value)
+          : {};
+        newParsed = this.lastEditedLog.new_value
+          ? JSON.parse(this.lastEditedLog.new_value)
+          : {};
+      } catch (e) {
+        return `<pre>Old Value: ${this.lastEditedLog.old_value}\nNew Value: ${this.lastEditedLog.new_value}</pre>`;
+      }
+      // Pretty-print the JSON with indentation.
+      const oldStr = JSON.stringify(oldParsed, null, 2);
+      const newStr = JSON.stringify(newParsed, null, 2);
+      // Compute the diff using diffJson.
+      const diff = diffJson(oldStr, newStr);
+      let html = "";
+      diff.forEach(part => {
+        // Added parts in green, removed parts in red, unchanged in black.
+        const color = part.added ? "green" : part.removed ? "red" : "black";
+        // Replace newlines with <br> to preserve formatting.
+        const text = part.value.replace(/\n/g, "<br>");
+        html += `<span style="color:${color}; white-space: pre-wrap;">${text}</span>`;
+      });
+      return html;
+    },
+  },
+  mounted() {
+    const userStore = useUserStore();
+    console.log("Logged in user email:", userStore.user.email);
+    this.fetchLastEditedLog();
   },
   methods: {
     // Called when user picks an action
@@ -291,11 +376,10 @@ export default {
       this.resetCurrentCompany();
       this.saveMessage = "";
       this.errorMessage = "";
-      // As soon as user picks an action, load the data if not loaded
       this.fetchCompanyData();
     },
 
-    // Reset company form
+    // Reset the company form.
     resetCurrentCompany() {
       this.currentCompany = {
         carrier_id: "",
@@ -304,22 +388,21 @@ export default {
         mvr_fields: {},
         statement_fields: {},
       };
+      this.originalCompany = {};
       this.simpleCompanyInput = "";
       this.isMVR = false;
       this.isStatement = false;
       this.mvrInputs = {};
       this.statementInputs = {};
-
       this.newMvrKey = "";
       this.newMvrValue = "";
       this.newStatementKey = "";
       this.newStatementValue = "";
     },
 
-    // Load entire company_metadata.json
+    // Fetch company metadata.
     async fetchCompanyData() {
       if (this.companyData.length) return; // already loaded
-
       this.loading = true;
       this.errorMessage = "";
       try {
@@ -335,81 +418,77 @@ export default {
       }
     },
 
-    // Add new MVR field
+    // Fetch the last edited log entry from the database.
+    async fetchLastEditedLog() {
+      try {
+        const response = await axios.post("https://dev.rocox.co/api/query_db", {
+          query:
+            "SELECT TOP 1 user_email, change_timestamp, action, old_value, new_value FROM dbo.configuration_logs ORDER BY change_timestamp DESC"
+        });
+        if (response.data && response.data.length > 0) {
+          this.lastEditedLog = response.data[0];
+        }
+      } catch (error) {
+        console.error("Error fetching last edited log:", error);
+      }
+    },
+
+    // Toggle display of log details.
+    toggleLogDetails() {
+      this.showLogDetails = !this.showLogDetails;
+    },
+
+    // MVR Field methods
     addMvrField() {
       if (this.newMvrKey.trim() && this.newMvrValue.trim()) {
-        // Standard JS property assignment
         this.mvrInputs[this.newMvrKey.trim()] = this.newMvrValue.trim();
-        // Clear
         this.newMvrKey = "";
         this.newMvrValue = "";
       } else {
         alert("Please enter a Field Key and choose a Mapped Field for MVR.");
       }
     },
-
-    // Remove MVR field
     removeMvrField(key) {
-      // Standard JS property removal
       delete this.mvrInputs[key];
     },
-
-    // Update MVR key name
     updateMvrKey(event, oldKey) {
       const newKey = event.target.value;
       if (!newKey.trim()) return;
-
       const oldVal = this.mvrInputs[oldKey];
       delete this.mvrInputs[oldKey];
       this.mvrInputs[newKey.trim()] = oldVal;
     },
 
-    // Add new Statement field
+    // Statement Field methods
     addStatementField() {
       if (this.newStatementKey.trim() && this.newStatementValue.trim()) {
-        this.statementInputs[this.newStatementKey.trim()] =
-          this.newStatementValue.trim();
+        this.statementInputs[this.newStatementKey.trim()] = this.newStatementValue.trim();
         this.newStatementKey = "";
         this.newStatementValue = "";
       } else {
         alert("Please enter a Field Key and choose a Mapped Field for Statement.");
       }
     },
-
-    // Remove statement field
     removeStatementField(key) {
       delete this.statementInputs[key];
     },
-
-    // Update statement key name
     updateStatementKey(event, oldKey) {
       const newKey = event.target.value;
       if (!newKey.trim()) return;
-
       const oldVal = this.statementInputs[oldKey];
       delete this.statementInputs[oldKey];
       this.statementInputs[newKey.trim()] = oldVal;
     },
 
-    // Save changes (Add or Modify)
+    // Save changes (for add or edit)
     async saveChanges() {
-      // Build final object
+      // Build the final company object.
       this.currentCompany.simple_company = this.simpleCompanyInput
         .split(",")
-        .map((s) => s.trim())
+        .map(s => s.trim())
         .filter(Boolean);
-
-      if (this.isMVR) {
-        this.currentCompany.mvr_fields = { ...this.mvrInputs };
-      } else {
-        this.currentCompany.mvr_fields = {};
-      }
-
-      if (this.isStatement) {
-        this.currentCompany.statement_fields = { ...this.statementInputs };
-      } else {
-        this.currentCompany.statement_fields = {};
-      }
+      this.currentCompany.mvr_fields = this.isMVR ? { ...this.mvrInputs } : {};
+      this.currentCompany.statement_fields = this.isStatement ? { ...this.statementInputs } : {};
 
       if (this.action === "add") {
         this.companyData.push({ ...this.currentCompany });
@@ -425,38 +504,64 @@ export default {
         });
         console.log("Save Response:", resp.data);
         this.saveMessage = "Changes saved successfully!";
+
+        // If editing, store the original values for logging (if not already set)
+        if (this.action === "edit" && Object.keys(this.originalCompany).length === 0) {
+          this.originalCompany = JSON.parse(JSON.stringify(this.companyData[this.selectedCompanyIndex]));
+        }
+
+        // Update the log table
+        await this.updateLog();
+
+        // Refresh the last edited log info
+        this.fetchLastEditedLog();
       } catch (error) {
         console.error("Error saving file:", error);
         this.saveMessage = "Failed to save changes.";
       }
     },
+
+    // Update the log table by calling the update_sql endpoint.
+    async updateLog() {
+      const userStore = useUserStore();
+      const logData = {
+        company_id: this.currentCompany.carrier_id || null,
+        user_id: userStore.user.id || null,
+        user_email: userStore.user.email,
+        action: this.action === "add" ? "create" : "update",
+        old_value: this.action === "edit" ? JSON.stringify(this.originalCompany) : "",
+        new_value: JSON.stringify(this.currentCompany)
+      };
+      try {
+        const response = await axios.post("https://dev.rocox.co/api/update_sql", {
+          table: "configuration_logs",
+          data: logData
+        });
+        console.log("Log update response:", response.data);
+      } catch (error) {
+        console.error("Error updating log:", error);
+      }
+    },
+
+    // Format date string for display.
+    formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    },
   },
   watch: {
-    // Whenever user selects a company => load data into currentCompany
+    // When a company is selected, load its data into the form and store original values.
     selectedCompanyIndex(newVal) {
       if (newVal !== "") {
         const selected = this.companyData[newVal];
         if (!selected) return;
-        // Copy to currentCompany
         this.currentCompany = JSON.parse(JSON.stringify(selected));
-
-        // parse simple_company array => comma string
+        this.originalCompany = JSON.parse(JSON.stringify(selected));
         this.simpleCompanyInput = this.currentCompany.simple_company.join(", ");
-
-        // MVR toggles
         this.isMVR = Object.keys(this.currentCompany.mvr_fields || {}).length > 0;
-        this.mvrInputs = JSON.parse(
-          JSON.stringify(this.currentCompany.mvr_fields || {})
-        );
-
-        // Statement toggles
-        this.isStatement =
-          Object.keys(this.currentCompany.statement_fields || {}).length > 0;
-        this.statementInputs = JSON.parse(
-          JSON.stringify(this.currentCompany.statement_fields || {})
-        );
-
-        // Reset new field placeholders
+        this.mvrInputs = JSON.parse(JSON.stringify(this.currentCompany.mvr_fields || {}));
+        this.isStatement = Object.keys(this.currentCompany.statement_fields || {}).length > 0;
+        this.statementInputs = JSON.parse(JSON.stringify(this.currentCompany.statement_fields || {}));
         this.newMvrKey = "";
         this.newMvrValue = "";
         this.newStatementKey = "";
@@ -485,7 +590,7 @@ export default {
   margin-bottom: 1.5rem;
 }
 
-/* Action buttons */
+/* Action Buttons */
 .action-selection {
   text-align: center;
   margin-bottom: 1.5rem;
@@ -504,22 +609,12 @@ export default {
   background-color: #0a58ca;
 }
 
-/* Load section */
+/* Load Section */
 .load-section {
   text-align: center;
   margin-bottom: 1.5rem;
-}
-.load-btn {
-  background-color: #6c757d;
-  color: #fff;
-  border: none;
-  font-size: 15px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.load-btn:hover {
-  background-color: #565e64;
+  font-size: 16px;
+  color: #555;
 }
 .error-message {
   color: red;
@@ -528,7 +623,7 @@ export default {
   text-align: center;
 }
 
-/* Edit/Select existing companies */
+/* Edit/Select Section */
 .edit-section {
   margin-top: 20px;
 }
@@ -546,7 +641,7 @@ export default {
   border: 1px solid #ccc;
 }
 
-/* Add/Edit Form */
+/* Form Section */
 .form-section {
   background: #f8f9fa;
   padding: 20px;
@@ -569,7 +664,7 @@ export default {
   border: 1px solid #ccc;
 }
 
-/* MVR/Statement toggles */
+/* Checkbox Group */
 .checkbox-group {
   display: flex;
   gap: 15px;
@@ -579,7 +674,7 @@ export default {
   font-size: 14px;
 }
 
-/* Fields sections */
+/* Fields Section */
 .fields-section {
   background: #ffffff;
   padding: 15px;
@@ -591,15 +686,11 @@ export default {
   margin-bottom: 0.5rem;
   font-weight: 600;
 }
-
-/* Scroll for many fields */
 .fields-scroll {
-  max-height: 200px; /* adjustable */
+  max-height: 200px;
   overflow-y: auto;
   margin-bottom: 10px;
 }
-
-/* field entry styling */
 .field-entry {
   display: flex;
   gap: 10px;
@@ -608,18 +699,16 @@ export default {
 .key-field {
   flex: 1;
 }
-
-/* "Add new fields" row */
 .add-new-fields {
   display: flex;
   gap: 10px;
   margin-top: 10px;
 }
 
-/* Remove and Add buttons */
+/* Remove and Add Buttons */
 .remove-btn {
-  background: none; /* remove red background */
-  color: #dc3545;   /* keep red icon color */
+  background: none;
+  color: #dc3545;
   font-size: 18px;
   border: none;
   cursor: pointer;
@@ -642,7 +731,7 @@ export default {
   background: #0fb18d;
 }
 
-/* Save button */
+/* Save Button */
 .save-btn {
   background-color: #28a745;
   color: #fff;
@@ -666,7 +755,7 @@ export default {
   color: #333;
 }
 
-/* View-only mode */
+/* View-Only Section */
 .view-only-section {
   background: #fdfdfd;
   border: 1px solid #ccc;
@@ -685,5 +774,35 @@ export default {
 .view-mapping-list li {
   margin: 4px 0;
   font-size: 14px;
+}
+
+/* Log Section */
+.log-section {
+  margin-top: 20px;
+  padding: 15px;
+  background: #eef;
+  border: 1px solid #ccd;
+  border-radius: 8px;
+}
+.log-user {
+  font-weight: bold;
+  color: #007bff;
+}
+.log-details {
+  margin-top: 10px;
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* Diff Container */
+.diff-container {
+  background: #f7f7f7;
+  padding: 10px;
+  border-radius: 6px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  margin-top: 10px;
 }
 </style>
