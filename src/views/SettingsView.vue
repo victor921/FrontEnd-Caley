@@ -99,20 +99,19 @@
       <div v-if="isMVR" class="fields-section">
         <h3>MVR Fields</h3>
         <div class="fields-scroll">
-          <!-- Use index as key so that editing the key does not recreate the element -->
+          <!-- Render each field using an array index -->
           <div
-            v-for="(mappedVal, key, index) in mvrInputs"
+            v-for="(field, index) in mvrInputs"
             :key="index"
             class="field-entry"
           >
             <input
               type="text"
-              :value="key"
+              v-model="field.key"
               class="input-field key-field"
-              @input="updateMvrKey($event, key)"
               placeholder="Field Key"
             />
-            <select v-model="mvrInputs[key]" class="input-field dropdown">
+            <select v-model="field.value" class="input-field dropdown">
               <option value="" disabled>Select Mapped Field</option>
               <option
                 v-for="option in fieldOptions"
@@ -122,7 +121,7 @@
                 {{ option }}
               </option>
             </select>
-            <button @click="removeMvrField(key)" class="remove-btn">
+            <button @click="removeMvrField(index)" class="remove-btn">
               ✖
             </button>
           </div>
@@ -155,20 +154,18 @@
       <div v-if="isStatement" class="fields-section">
         <h3>Statement Fields</h3>
         <div class="fields-scroll">
-          <!-- Use index as key -->
           <div
-            v-for="(mappedVal, key, index) in statementInputs"
+            v-for="(field, index) in statementInputs"
             :key="index"
             class="field-entry"
           >
             <input
               type="text"
-              :value="key"
+              v-model="field.key"
               class="input-field key-field"
-              @input="updateStatementKey($event, key)"
               placeholder="Field Key"
             />
-            <select v-model="statementInputs[key]" class="input-field dropdown">
+            <select v-model="field.value" class="input-field dropdown">
               <option value="" disabled>Select Mapped Field</option>
               <option
                 v-for="option in fieldOptions"
@@ -178,7 +175,7 @@
                 {{ option }}
               </option>
             </select>
-            <button @click="removeStatementField(key)" class="remove-btn">
+            <button @click="removeStatementField(index)" class="remove-btn">
               ✖
             </button>
           </div>
@@ -225,10 +222,10 @@
         >
           <ul>
             <li
-              v-for="(mappedVal, mappedKey) in currentCompany.mvr_fields"
-              :key="mappedKey"
+              v-for="(value, key) in currentCompany.mvr_fields"
+              :key="key"
             >
-              <strong>{{ mappedKey }}</strong> → {{ mappedVal }}
+              <strong>{{ key }}</strong> → {{ value }}
             </li>
           </ul>
         </div>
@@ -243,10 +240,10 @@
         >
           <ul>
             <li
-              v-for="(mappedVal, mappedKey) in currentCompany.statement_fields"
-              :key="mappedKey"
+              v-for="(value, key) in currentCompany.statement_fields"
+              :key="key"
             >
-              <strong>{{ mappedKey }}</strong> → {{ mappedVal }}
+              <strong>{{ key }}</strong> → {{ value }}
             </li>
           </ul>
         </div>
@@ -296,9 +293,9 @@ export default {
       originalCompany: {},
       simpleCompanyInput: "",
 
-      // Local store for MVR and Statement fields (stored as objects)
-      mvrInputs: {},
-      statementInputs: {},
+      // Use arrays for dynamic fields
+      mvrInputs: [],
+      statementInputs: [],
 
       // New field inputs
       newMvrKey: "",
@@ -310,7 +307,7 @@ export default {
       isMVR: false,
       isStatement: false,
 
-      // Predefined field options (carrier_name added)
+      // Predefined field options
       fieldOptions: [
         "full_name",
         "order_date",
@@ -395,8 +392,8 @@ export default {
       this.simpleCompanyInput = "";
       this.isMVR = false;
       this.isStatement = false;
-      this.mvrInputs = {};
-      this.statementInputs = {};
+      this.mvrInputs = [];
+      this.statementInputs = [];
       this.newMvrKey = "";
       this.newMvrValue = "";
       this.newStatementKey = "";
@@ -444,44 +441,46 @@ export default {
     // MVR Field methods
     addMvrField() {
       if (this.newMvrKey.trim() && this.newMvrValue.trim()) {
-        this.$set(this.mvrInputs, this.newMvrKey.trim(), this.newMvrValue.trim());
+        this.mvrInputs.push({
+          key: this.newMvrKey.trim(),
+          value: this.newMvrValue.trim()
+        });
         this.newMvrKey = "";
         this.newMvrValue = "";
       } else {
         alert("Please enter a Field Key and choose a Mapped Field for MVR.");
       }
     },
-    removeMvrField(key) {
-      this.$delete(this.mvrInputs, key);
-    },
-    updateMvrKey(event, oldKey) {
-      const newKey = event.target.value;
-      // Allow even empty strings so that user can correct errors without re-clicking
-      if (newKey === oldKey) return;
-      const oldVal = this.mvrInputs[oldKey];
-      this.$delete(this.mvrInputs, oldKey);
-      this.$set(this.mvrInputs, newKey, oldVal);
+    removeMvrField(index) {
+      this.mvrInputs.splice(index, 1);
     },
 
     // Statement Field methods
     addStatementField() {
       if (this.newStatementKey.trim() && this.newStatementValue.trim()) {
-        this.$set(this.statementInputs, this.newStatementKey.trim(), this.newStatementValue.trim());
+        this.statementInputs.push({
+          key: this.newStatementKey.trim(),
+          value: this.newStatementValue.trim()
+        });
         this.newStatementKey = "";
         this.newStatementValue = "";
       } else {
         alert("Please enter a Field Key and choose a Mapped Field for Statement.");
       }
     },
-    removeStatementField(key) {
-      this.$delete(this.statementInputs, key);
+    removeStatementField(index) {
+      this.statementInputs.splice(index, 1);
     },
-    updateStatementKey(event, oldKey) {
-      const newKey = event.target.value;
-      if (newKey === oldKey) return;
-      const oldVal = this.statementInputs[oldKey];
-      this.$delete(this.statementInputs, oldKey);
-      this.$set(this.statementInputs, newKey, oldVal);
+
+    // Helper: Convert array of field objects to an object mapping keys to values
+    arrayToObject(arr) {
+      const obj = {};
+      arr.forEach(item => {
+        if (item.key) {
+          obj[item.key] = item.value;
+        }
+      });
+      return obj;
     },
 
     // Save changes (for add or edit)
@@ -491,8 +490,8 @@ export default {
         .split(",")
         .map(s => s.trim())
         .filter(Boolean);
-      this.currentCompany.mvr_fields = this.isMVR ? { ...this.mvrInputs } : {};
-      this.currentCompany.statement_fields = this.isStatement ? { ...this.statementInputs } : {};
+      this.currentCompany.mvr_fields = this.isMVR ? this.arrayToObject(this.mvrInputs) : {};
+      this.currentCompany.statement_fields = this.isStatement ? this.arrayToObject(this.statementInputs) : {};
 
       if (this.action === "add") {
         this.companyData.push({ ...this.currentCompany });
@@ -563,9 +562,15 @@ export default {
         this.originalCompany = JSON.parse(JSON.stringify(selected));
         this.simpleCompanyInput = this.currentCompany.simple_company.join(", ");
         this.isMVR = Object.keys(this.currentCompany.mvr_fields || {}).length > 0;
-        this.mvrInputs = JSON.parse(JSON.stringify(this.currentCompany.mvr_fields || {}));
+        this.mvrInputs = Object.keys(this.currentCompany.mvr_fields || {}).map(key => ({
+          key,
+          value: this.currentCompany.mvr_fields[key]
+        }));
         this.isStatement = Object.keys(this.currentCompany.statement_fields || {}).length > 0;
-        this.statementInputs = JSON.parse(JSON.stringify(this.currentCompany.statement_fields || {}));
+        this.statementInputs = Object.keys(this.currentCompany.statement_fields || {}).map(key => ({
+          key,
+          value: this.currentCompany.statement_fields[key]
+        }));
         this.newMvrKey = "";
         this.newMvrValue = "";
         this.newStatementKey = "";
