@@ -4,11 +4,14 @@
     <div class="form-section">
       <label for="file-input" class="file-upload-label">
         <i class="fas fa-cloud-upload-alt"></i>
-        Click to select files (CSV, Pipe, XLS, XLSX)
+        Click to select files (CSV, Pipe, XLS, XLSX, XLSM)
       </label>
+      <!-- Standard file selection input -->
       <input id="file-input" type="file" multiple @change="handleFileSelect" class="file-input" />
-      <p v-if="selectedFiles.length" class="file-info">
-        Selected Files: {{ selectedFiles.map((f) => f.name).join(", ") }}
+
+      <!-- Optional summary line showing file names -->
+      <p v-if="fileConfigs.length" class="file-info">
+        Selected Files: {{ fileConfigs.map(fc => fc.file.name).join(", ") }}
       </p>
     </div>
 
@@ -16,18 +19,14 @@
     <div v-if="selectedFiles.length" class="file-config-section">
       <h2>Configure Each File</h2>
 
-      <div
-        v-for="(fc, index) in fileConfigs"
-        :key="index"
-        class="file-config"
-      >
-        <!-- Basic File Info -->
+      <div v-for="(fc, index) in fileConfigs" :key="index" class="file-config">
+        <!-- Basic File Info (always visible) -->
         <div class="file-details">
           <p>
             <strong>{{ fc.file.name }}</strong>
           </p>
           <p v-if="fc.invalidFormat" class="invalid-format">
-            ❌ Unsupported format. Only CSV, Pipe, XLS, XLSX are allowed.
+            ❌ Unsupported format. Only CSV, Pipe, XLS, XLSX, XLSM are allowed.
           </p>
         </div>
 
@@ -35,122 +34,71 @@
           <!-- AUTO-SELECT TOGGLE -->
           <div class="auto-select-row">
             <label class="checkbox-label">
-              <input
-                type="checkbox"
-                v-model="fc.autoSelect"
-                @change="onAutoManualToggle(index)"
-              />
+              <input type="checkbox" v-model="fc.autoSelect" @change="onAutoManualToggle(index)" />
               Auto-Detect Header Row
             </label>
 
-            <!-- If not autoSelect => let user specify row number -->
+            <!-- If autoSelect is off, let user specify row number -->
             <div v-if="!fc.autoSelect" class="row-number-input">
               <label>Header Row #:</label>
-              <input
-                type="number"
-                min="1"
-                v-model.number="fc.manualHeaderRow"
-                @change="onManualRowChange(index)"
-              />
+              <input type="number" min="1" v-model.number="fc.manualHeaderRow" @change="onManualRowChange(index)" />
             </div>
           </div>
 
-          <!-- FOLDER -->
+          <!-- FOLDER selection -->
           <label class="dropdown-label">Select Folder:</label>
-          <select
-            v-model="fc.folder"
-            @change="onFolderChange(index)"
-            class="dropdown"
-          >
+          <select v-model="fc.folder" @change="onFolderChange(index)" class="dropdown">
             <option value="" disabled>Select Folder</option>
             <option value="MVR">MVR</option>
             <option value="Services & Deductions">Services & Deductions</option>
             <option value="Company Statements">Company Statements</option>
           </select>
 
-          <!-- MVR => filter by mvr_fields -->
+          <!-- Company selection for MVR -->
           <div v-if="fc.folder === 'MVR'" class="dropdown-group">
             <label class="dropdown-label">Select Company (MVR):</label>
-            <select
-              v-model="fc.company"
-              class="dropdown"
-              @change="handleCompanyChange(index)"
-            >
+            <select v-model="fc.company" class="dropdown" @change="handleCompanyChange(index)">
               <option value="" disabled>Select a Company</option>
-              <option
-                v-for="m in fc.filteredCompanies"
-                :key="m.full_company_name"
-                :value="m.full_company_name"
-              >
+              <option v-for="m in fc.filteredCompanies" :key="m.full_company_name" :value="m.full_company_name">
                 {{ m.full_company_name }}
               </option>
             </select>
           </div>
 
-          <!-- Company Statements => filter by statement_fields -->
+          <!-- Company selection for Company Statements -->
           <div v-else-if="fc.folder === 'Company Statements'" class="dropdown-group">
             <label class="dropdown-label">Select Company (Statements):</label>
-            <select
-              v-model="fc.company"
-              class="dropdown"
-              @change="handleCompanyChange(index)"
-            >
+            <select v-model="fc.company" class="dropdown" @change="handleCompanyChange(index)">
               <option value="" disabled>Select a Company</option>
-              <option
-                v-for="m in fc.filteredCompanies"
-                :key="m.full_company_name"
-                :value="m.full_company_name"
-              >
+              <option v-for="m in fc.filteredCompanies" :key="m.full_company_name" :value="m.full_company_name">
                 {{ m.full_company_name }}
               </option>
             </select>
           </div>
 
-          <!-- Services => no company needed -->
+          <!-- For Services & Deductions, no company selection needed -->
           <p v-else-if="fc.folder === 'Services & Deductions'" class="info-text">
             No company selection needed for Services & Deductions.
           </p>
 
           <!-- Progress Bar -->
-          <div
-            v-if="fc.fileProcessProgress < 100 && fc.fileProcessProgress > 0"
-            class="process-bar-wrapper"
-          >
-            <div
-              class="process-bar"
-              :style="{ width: fc.fileProcessProgress + '%' }"
-            ></div>
-            <p class="process-bar-text">
-              {{ fc.fileProcessProgress }}% ...
-            </p>
+          <div v-if="fc.fileProcessProgress < 100 && fc.fileProcessProgress > 0" class="process-bar-wrapper">
+            <div class="process-bar" :style="{ width: fc.fileProcessProgress + '%' }"></div>
+            <p class="process-bar-text">{{ fc.fileProcessProgress }}% ...</p>
           </div>
 
-          <!-- Missing fields OR success -->
+          <!-- Missing Fields or Success Message -->
           <div v-if="fc.missingFields.length" class="missing-fields">
             <p><strong>Missing Fields:</strong> {{ fc.missingFields.join(", ") }}</p>
           </div>
-          <p v-else-if="fc.fieldsValid" class="valid-fields">
-            ✅ All required fields match.
-          </p>
+          <p v-else-if="fc.fieldsValid" class="valid-fields">✅ All required fields match.</p>
 
           <!-- Carrier Name match message -->
-          <p
-            v-if="fc.carrierNameMessage"
-            :class="fc.carrierNameIsMatch ? 'carrier-match-ok' : 'carrier-match-warn'"
-          >
+          <p v-if="fc.carrierNameMessage" :class="fc.carrierNameIsMatch ? 'carrier-match-ok' : 'carrier-match-warn'">
             {{ fc.carrierNameMessage }}
           </p>
 
-          <!-- GROSS SUM -->
-          <!-- <p
-            v-if="fc.grossCommSum !== undefined && fc.fieldsValid"
-            class="gross-comm"
-          >
-            <strong>Total Gross Commission (this file):</strong>
-            {{ fc.grossCommSum.toFixed(2) }}
-          </p> -->
-
-          <!-- DB RESULT (only if statements) -->
+          <!-- Database check result (for Company Statements) -->
           <p v-if="fc.dbCheckDone && fc.matchExists" class="match-alert">
             ⚠️ The total gross commission matches a month in the last 3 months!
           </p>
@@ -158,11 +106,8 @@
             ✅ No matches found in the last 3 months. You're good to go!
           </p>
 
-          <!-- Upload progress if uploading -->
-          <div
-            v-if="uploading && uploadProgress[fc.file.name]"
-            class="upload-progress-wrapper"
-          >
+          <!-- Upload progress if applicable -->
+          <div v-if="uploading && uploadProgress[fc.file.name]" class="upload-progress-wrapper">
             <p>Uploading: {{ uploadProgress[fc.file.name] }}%</p>
             <progress :value="uploadProgress[fc.file.name]" max="100"></progress>
           </div>
@@ -170,25 +115,14 @@
       </div>
     </div>
 
-    <!-- Submit -->
+    <!-- Submit Section -->
     <div v-if="selectedFiles.length" class="submit-section">
-      <button
-        @click="uploadFiles"
-        :disabled="!selectedFiles.length || uploading"
-        class="upload-button"
-      >
+      <button @click="uploadFiles" :disabled="!selectedFiles.length || uploading" class="upload-button">
         {{ uploading ? "Uploading..." : "Upload Files" }}
       </button>
       <p v-if="uploadResponse" class="upload-response">{{ uploadResponse }}</p>
       <ul class="upload-results">
-        <li
-          v-for="(res, i) in uploadResults"
-          :key="i"
-          :class="{
-            'upload-success': res.status === 'success',
-            'upload-failed': res.status === 'failed',
-          }"
-        >
+        <li v-for="(res, i) in uploadResults" :key="i" :class="{ 'upload-success': res.status === 'success', 'upload-failed': res.status === 'failed' }">
           {{ res.fileName }}: {{ res.message }}
         </li>
       </ul>
@@ -216,7 +150,9 @@ export default {
   methods: {
     async handleFileSelect(e) {
       const files = Array.from(e.target.files);
-      const validExts = ["csv", "xls", "xlsx"];
+      console.log("Selected Files:", files);
+      // Valid extensions now include xlsm
+      const validExts = ["csv", "xls", "xlsx", "xlsm"];
 
       if (!this.companyMetadata.length) {
         await this.fetchCompanyMetadata();
@@ -227,6 +163,8 @@ export default {
         const ext = file.name.split(".").pop().toLowerCase();
         return {
           file,
+          // No longer using full file path; just use file.name
+          fullPath: file.name,
           folder: "",
           company: "",
           invalidFormat: !validExts.includes(ext),
@@ -241,10 +179,11 @@ export default {
           filteredCompanies: [],
           _headers: [],
           _dataRows: [],
-          carrierNameMessage: "",      // NEW
-          carrierNameIsMatch: false,   // NEW
+          carrierNameMessage: "",
+          carrierNameIsMatch: false,
         };
       });
+      console.log("File Configs:", this.fileConfigs);
     },
 
     async fetchCompanyMetadata() {
@@ -344,10 +283,6 @@ export default {
       }
     },
 
-    /**
-     * parseAndValidate: Parse the file, check required fields,
-     * and do partial match for "Carrier Name" (first row).
-     */
     async parseAndValidate(fc, halfPoint) {
       fc.missingFields = [];
       fc.fieldsValid = false;
@@ -383,36 +318,32 @@ export default {
         return;
       }
 
-      let fieldDict =
-        fc.folder === "MVR" ? meta.mvr_fields : meta.statement_fields;
+      let fieldDict = fc.folder === "MVR" ? meta.mvr_fields : meta.statement_fields;
       if (!fieldDict) {
         fc.missingFields.push("No fields defined in metadata");
         return;
       }
 
-      // 3) For Company Statements => do partial "Carrier Name" check
+      // 3) For Company Statements: partial "Carrier Name" check
       if (fc.folder === "Company Statements") {
-        // The metadata might define the column name for carrier name, or we can assume "Carrier Name"
         const carrierNameKey = "Carrier Name";
         const matchedHeader = fc._headers.find(
           (hdr) => hdr.toLowerCase() === carrierNameKey.toLowerCase()
         );
         if (matchedHeader && fc._dataRows.length > 0) {
-          // Only check first row's value
           const firstVal = String(fc._dataRows[0][matchedHeader] || "")
             .trim()
             .toLowerCase();
           const selectedCo = fc.company.toLowerCase();
 
-          // Expand this aliasMap as needed
           const aliasMap = {
-              "ambetter":"ambetter",
-              "uhc aca":"united healthcare",
-              "cigna":"cigna hlth grp",
-              "molina marketplace":"molina hlthcare of fl inc",
-              "aetna":"aetna override",
-              "oscar healthcare":"oscar override"
-            };
+            "ambetter": "ambetter",
+            "uhc aca": "united healthcare",
+            "cigna": "cigna hlth grp",
+            "molina marketplace": "molina hlthcare of fl inc",
+            "aetna": "aetna override",
+            "oscar healthcare": "oscar override"
+          };
 
           const expanded = aliasMap[firstVal] || firstVal;
 
@@ -432,7 +363,6 @@ export default {
       neededFields.forEach((internal) => {
         fieldMap[internal] = [];
       });
-
       for (const [csvField, internalField] of Object.entries(fieldDict)) {
         if (fieldMap[internalField]) {
           fieldMap[internalField].push(csvField);
@@ -450,19 +380,18 @@ export default {
           missing.push(`"${internalField}"`);
         }
       }
-
       fc.missingFields = missing;
       fc.fieldsValid = missing.length === 0;
       if (!fc.fieldsValid) {
         return;
       }
 
-      // 6) If MVR => done
+      // 6) For MVR, we're done
       if (fc.folder === "MVR") {
         return;
       }
 
-      // 7) Summation for "Company Statements" => "gross_comission"
+      // 7) For Company Statements, sum up "gross_comission"
       const possibleGross = fieldMap["gross_comission"] || [];
       const matchedGrossHdr = possibleGross.find((h) =>
         fc._headers.includes(h)
@@ -472,7 +401,6 @@ export default {
         fc.fieldsValid = false;
         return;
       }
-
       let sum = 0;
       for (const row of fc._dataRows) {
         let val = row[matchedGrossHdr];
@@ -499,18 +427,14 @@ export default {
       fc.dbCheckDone = false;
       fc.matchExists = false;
       fc.fileProcessProgress = Math.max(fc.fileProcessProgress, 50);
-
       const now = new Date();
       let found = false;
       const sum2d = parseFloat(fc.grossCommSum.toFixed(2));
-
       try {
-        // Check last 3 months
         for (let offset = 0; offset < 3; offset++) {
           const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
           const m = d.getMonth() + 1;
           const y = d.getFullYear();
-
           const queryStr = `
             SELECT SUM(gross_comission) as sum_gross
             FROM PRD.PremiumReport
@@ -518,9 +442,7 @@ export default {
               AND YEAR(AddedDate) = ${y}
               AND carrier = '${fc.company}'
           `;
-          const resp = await axios.post("https://dev.rocox.co/api/query_db", {
-            query: queryStr,
-          });
+          const resp = await axios.post("https://dev.rocox.co/api/query_db", { query: queryStr });
           const [row] = resp.data || [];
           const moSum = parseFloat(parseFloat(row?.sum_gross || 0).toFixed(2));
           if (moSum === sum2d) {
@@ -531,23 +453,19 @@ export default {
       } catch (err) {
         console.error("DB check error:", err);
       }
-
       fc.dbCheckDone = true;
       fc.fileProcessProgress = endPoint;
     },
 
-    // parseFile => parse CSV or XLS up to halfPoint
     async parseFile(fc, halfPoint) {
       fc._headers = [];
       fc._dataRows = [];
       fc.fileProcessProgress = 0;
-
       const file = fc.file;
       const ext = file.name.split(".").pop().toLowerCase();
-
       if (ext === "csv") {
         await this.parseCSV(fc, file, halfPoint);
-      } else if (ext === "xls" || ext === "xlsx") {
+      } else if (ext === "xls" || ext === "xlsx" || ext === "xlsm") {
         await this.parseXLS(fc, file, halfPoint);
       } else {
         fc.fileProcessProgress = halfPoint;
@@ -571,7 +489,6 @@ export default {
             }
             let rawRows = results.data;
             if (fc.autoSelect) {
-              // detect best row
               let bestIndex = 0;
               let bestScore = 0;
               const maxCheck = Math.min(rawRows.length, 20);
@@ -723,17 +640,13 @@ export default {
               this.uploadProgress[fc.file.name] = pc;
             },
           });
-
           this.uploadResults.push({
             fileName: fc.file.name,
             status: "success",
             message: "Uploaded successfully",
           });
         } catch (error) {
-          console.error(
-            `Error uploading file '${fc.file.name}':`,
-            error.message
-          );
+          console.error(`Error uploading file '${fc.file.name}':`, error.message);
           this.uploadResults.push({
             fileName: fc.file.name,
             status: "failed",
@@ -741,7 +654,6 @@ export default {
           });
         }
       }
-
       this.uploadResponse = "File upload process completed.";
       this.uploading = false;
     },
@@ -892,15 +804,15 @@ export default {
 .carrier-match-ok {
   margin-top: 10px;
   font-size: 14px;
-  color: #28a745; /* green */
+  color: #28a745;
 }
 .carrier-match-warn {
   margin-top: 10px;
   font-size: 14px;
-  color: #ffc107; /* yellowish */
+  color: #ffc107;
 }
 
-/* Progress Bar for parse+db check */
+/* Progress Bar */
 .process-bar-wrapper {
   width: 100%;
   background-color: #f0f0f0;
@@ -921,7 +833,7 @@ export default {
   color: #555;
 }
 
-/* Upload progress bar */
+/* Upload progress */
 .upload-progress-wrapper {
   margin-top: 10px;
 }
