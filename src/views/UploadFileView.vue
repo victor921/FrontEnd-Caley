@@ -282,7 +282,13 @@ export default {
       fc.carrierNameIsMatch = false
 
       if (fc.folder === 'MVR') {
-        fc.filteredCompanies = this.companyMetadata.filter((c) => c.mvr_fields)
+        // Only include companies that have non-empty mvr_fields data.
+        fc.filteredCompanies = this.companyMetadata.filter((c) => {
+          // Ensure mvr_fields exists and at least one field has a non-empty value.
+          return (
+            c.mvr_fields && Object.values(c.mvr_fields).some((val) => val !== null && val !== '')
+          )
+        })
       } else if (fc.folder === 'Company Statements') {
         fc.filteredCompanies = this.companyMetadata.filter((c) => c.statement_fields)
       } else {
