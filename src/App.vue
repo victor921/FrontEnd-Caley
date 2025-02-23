@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/userStore";
 
@@ -9,28 +9,28 @@ const userStore = useUserStore();
 // Reactive user state
 const user = computed(() => userStore.user);
 const isAuthenticated = computed(() => !!user.value);
-
-// For sign-out overlay
 const isSigningOut = computed(() => userStore.isSigningOut);
 
-/**
- * signOut() calls the store action to clear user data
- * and then redirects to the login page.
- */
+// Inactivity timer state
+const showWarning = ref(false);
+const countdown = ref(60); // 1-minute warning
+let inactivityTimer = null;
+let countdownTimer = null;
+
+// Constants (in milliseconds)
+const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+const WARNING_DURATION = 60 * 1000; // 1 minute
+
+// Navigation and sign-out functions
 function signOut() {
+  stopInactivityTimer();
   userStore.signOut().then(() => {
-    // After signOut action completes, navigate to login
     router.push("/login").then(() => {
-      // Optionally, force a full reload to ensure all state is cleared
       window.location.reload();
     });
   });
 }
 
-/**
- * navigateTo navigates to a path if authenticated,
- * else redirects to login.
- */
 function navigateTo(path) {
   if (isAuthenticated.value) {
     router.push(path);
@@ -39,9 +39,52 @@ function navigateTo(path) {
   }
 }
 
-// Load user from storage on app startup
+// Inactivity timer logic
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  clearInterval(countdownTimer);
+  showWarning.value = false;
+  countdown.value = 60;
+
+  inactivityTimer = setTimeout(() => {
+    showWarning.value = true;
+    countdownTimer = setInterval(() => {
+      countdown.value--;
+      if (countdown.value <= 0) {
+        signOut();
+      }
+    }, 1000);
+  }, INACTIVITY_LIMIT - WARNING_DURATION);
+}
+
+function startInactivityTimer() {
+  if (!isAuthenticated.value) return;
+  window.addEventListener("mousemove", resetInactivityTimer);
+  window.addEventListener("click", resetInactivityTimer);
+  window.addEventListener("keypress", resetInactivityTimer);
+  resetInactivityTimer();
+}
+
+function stopInactivityTimer() {
+  window.removeEventListener("mousemove", resetInactivityTimer);
+  window.removeEventListener("click", resetInactivityTimer);
+  window.removeEventListener("keypress", resetInactivityTimer);
+  clearTimeout(inactivityTimer);
+  clearInterval(countdownTimer);
+}
+
+function extendSession() {
+  resetInactivityTimer();
+}
+
+// Lifecycle hooks
 onMounted(() => {
   userStore.loadUserFromStorage();
+  startInactivityTimer();
+});
+
+onUnmounted(() => {
+  stopInactivityTimer();
 });
 </script>
 
@@ -97,6 +140,19 @@ onMounted(() => {
         <div class="spinner"></div>
       </div>
     </div>
+
+    <!-- INACTIVITY WARNING MODAL -->
+    <div v-if="showWarning && !isSigningOut" class="modal-overlay">
+      <div class="modal-content">
+        <h2>Session Timeout Warning</h2>
+        <p>
+          You will be signed out in {{ countdown }} seconds due to inactivity.
+          Do you want to stay signed in?
+        </p>
+        <button @click="extendSession">Stay Signed In</button>
+        <button @click="signOut">Sign Out Now</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -104,7 +160,7 @@ onMounted(() => {
 #app {
   display: flex;
   height: 100vh;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 /* SIDEBAR */
@@ -123,7 +179,7 @@ onMounted(() => {
   margin-bottom: 1rem;
 }
 .logo {
-  max-width: 80%; /* ~20% smaller */
+  max-width: 80%;
   height: auto;
   display: inline-block;
 }
@@ -197,7 +253,7 @@ onMounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -225,6 +281,42 @@ onMounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* INACTIVITY WARNING MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 998; /* Below sign-out overlay */
+}
+.modal-content {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+.modal-content button {
+  margin: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.modal-content button:first-child {
+  background: #007bff;
+  color: white;
+}
+.modal-content button:last-child {
+  background: #dc3545;
+  color: white;
 }
 
 /* RESPONSIVE for narrower screens */

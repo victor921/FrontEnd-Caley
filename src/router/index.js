@@ -1,24 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import { useUserStore } from '@/stores/userStore'
-
-// Mock authentication function (replace with real logic)
-function isAuthenticated() {
-  try {
-    const raw = localStorage.getItem('userInfo')
-    if (!raw) return false
-    const userData = JSON.parse(raw)
-    // Example check: if token isn't expired or if userData has minimal fields
-    // For now, just check existence
-    return !!userData
-  } catch (err) {
-    return false
-  }
-}
+// src/router/index.js
+import { createRouter, createWebHistory } from 'vue-router';
+import { useUserStore } from '@/stores/userStore';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // Redirect the root "/" to "/login"
     {
       path: '/',
       redirect: '/login',
@@ -27,7 +13,6 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
-      // This route does *not* require auth; user is logging in
     },
     {
       path: '/home',
@@ -67,22 +52,24 @@ const router = createRouter({
     },
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/login', // Any unmatched route -> /login
+      redirect: '/login',
     },
   ],
-})
+});
 
-
-// Global guard => if meta.requiresAuth & not logged => go /login
 router.beforeEach((to, from, next) => {
-  const userStore = useUserStore()
-  const isAuthenticated = userStore.isAuthenticated
+  const userStore = useUserStore();
+  userStore.loadUserFromStorage(); // Ensure user state is loaded
 
-  if (to.path !== '/login' && !isAuthenticated) {
-    next('/login')
+  const isAuthenticated = userStore.isAuthenticated;
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next('/login');
+  } else if (to.path === '/login' && isAuthenticated) {
+    next('/home'); // Redirect authenticated users away from login
   } else {
-    next()
+    next();
   }
-})
+});
 
-export default router
+export default router;
