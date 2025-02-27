@@ -55,7 +55,7 @@
         <!-- Modal Header -->
         <div class="modal-header">
           <h2 class="modal-title" id="modal-title">File Details</h2>
-          <button @click="closeModal" class="close-button" aria-label="Close Modal">&times;</button>
+          <button @click="closeModal" class="close-button" aria-label="Close Modal">×</button>
         </div>
 
         <!-- Status Section -->
@@ -239,12 +239,14 @@ export default {
           })
           .filter((f) => f !== null);
 
-        // Sort descending by timestamp
-        this.formattedFiles = rawFiles.sort((a, b) => {
-          const aTime = new Date(a.displayName).getTime();
-          const bTime = new Date(b.displayName).getTime();
-          return bTime - aTime;
-        });
+        // Sort descending by timestamp and take the last 10 runs
+        this.formattedFiles = rawFiles
+          .sort((a, b) => {
+            const aTime = new Date(a.displayName).getTime();
+            const bTime = new Date(b.displayName).getTime();
+            return bTime - aTime;
+          })
+          .slice(0, 10); // Limit to the 10 most recent runs
 
         // Fetch the actual status from get_file_content
         await Promise.all(
@@ -269,7 +271,6 @@ export default {
         const data = await resp.json();
         file.status = data.STATUS || "PENDING";
       } catch (err) {
-        // If there's an error, let's mark the run as FAIL
         file.status = "FAIL";
       }
     },
@@ -286,23 +287,19 @@ export default {
         }
         const fileData = await resp.json();
 
-        // Show the modal with details
         this.selectedFileDetails = fileData;
         this.status = fileData.STATUS || "PENDING";
         this.isModalVisible = true;
 
-        // Update local file status
         const fileRef = this.formattedFiles.find(
           (f) => f.fullPath === filePath
         );
         if (fileRef) fileRef.status = this.status;
 
-        // If status is RUNNING, start polling
         if (this.status === "RUNNING") {
           this.startPolling(filePath);
         }
 
-        // Initialize focus trap
         this.$nextTick(() => {
           if (this.isModalVisible) {
             this.trap = createFocusTrap(this.$refs.modalContent, {
@@ -320,22 +317,15 @@ export default {
     },
 
     startPolling(filePath) {
-      // Reset countdown
       this.pollingCountdown = this.pollIntervalSeconds;
-
-      // Clear any previous interval
       this.stopPolling();
 
-      // Start a 1-second interval
       this.pollingInterval = setInterval(async () => {
-        // Decrement countdown
         this.pollingCountdown--;
 
-        // If countdown hits 0 => re-fetch
         if (this.pollingCountdown <= 0) {
-          this.pollingCountdown = this.pollIntervalSeconds; // reset countdown
+          this.pollingCountdown = this.pollIntervalSeconds;
 
-          // Perform the poll
           try {
             if (this.status !== "RUNNING") {
               this.stopPolling();
@@ -352,7 +342,6 @@ export default {
             this.selectedFileDetails = fileData;
             this.status = fileData.STATUS;
 
-            // Update local list
             const fileRef = this.formattedFiles.find(
               (f) => f.fullPath === filePath
             );
@@ -375,10 +364,8 @@ export default {
         clearInterval(this.pollingInterval);
         this.pollingInterval = null;
       }
-      // Reset countdown
       this.pollingCountdown = 0;
 
-      // Deactivate focus trap if active
       if (this.trap) {
         this.trap.deactivate();
         this.trap = null;
@@ -401,7 +388,6 @@ export default {
     },
 
     statusBadgeClass(status) {
-      // Assign a class for the listing badges
       switch (status) {
         case "RUNNING":
           return "badge-running";
@@ -417,14 +403,12 @@ export default {
     },
 
     handleTab(e) {
-      // Prevent focus from leaving the modal
       e.preventDefault();
     },
   },
   mounted() {
     this.updateCurrentDatetime();
     this.loadFiles();
-    // Refresh current datetime every second
     this.datetimeInterval = setInterval(this.updateCurrentDatetime, 1000);
   },
   beforeDestroy() {
@@ -567,7 +551,7 @@ export default {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 9999; /* Increased z-index to ensure it appears above all other elements */
+  z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -578,8 +562,8 @@ export default {
   background: #fff;
   max-width: 600px;
   width: 100%;
-  max-height: 80vh; /* 80% of viewport height */
-  overflow-y: auto; /* Scroll when content exceeds max-height */
+  max-height: 80vh;
+  overflow-y: auto;
   border-radius: 8px;
   position: relative;
   padding: 20px;
@@ -652,7 +636,7 @@ export default {
 /* Modal body */
 .modal-body {
   overflow-y: auto;
-  flex: 1; /* Take up remaining space */
+  flex: 1;
   border-top: 1px solid #eee;
   margin-top: 10px;
   padding-top: 10px;

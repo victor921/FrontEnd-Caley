@@ -111,6 +111,10 @@ onUnmounted(() => {
           <img src="@/assets/icons/upload.svg" alt="Upload Files" />
           <span>Upload Files</span>
         </div>
+        <div class="menu-item" @click="navigateTo('/searchContact')">
+          <img src="@/assets/icons/search.svg" alt="Search Contact" />
+          <span>Search Contact</span>
+        </div>
         <div class="menu-item" @click="navigateTo('/runHistory')">
           <img src="@/assets/icons/history.svg" alt="Run History" />
           <span>Run History</span>

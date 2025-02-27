@@ -1,268 +1,203 @@
 <template>
   <div class="settings-container">
-    <h1 class="title">Company Metadata Management</h1>
+    <header class="header">
+      <h1 class="title">Company Metadata Management</h1>
+    </header>
 
-    <!-- Action Buttons -->
-    <div class="action-selection">
-      <button @click="chooseAction('add')" class="action-btn">
-        ➕ Add New Company
-      </button>
-      <button @click="chooseAction('edit')" class="action-btn">
-        ✏️ Modify Existing Company
-      </button>
-      <button @click="chooseAction('view')" class="action-btn">
-        👀 View Mappings
-      </button>
+    <!-- Tabs for Actions -->
+    <div class="tab-bar">
+      <button @click="chooseAction('add')" :class="['tab', { active: action === 'add' }]">Add New</button>
+      <button @click="chooseAction('edit')" :class="['tab', { active: action === 'edit' }]">Edit</button>
+      <button @click="chooseAction('view')" :class="['tab', { active: action === 'view' }]">View</button>
     </div>
 
-    <!-- Loading Indicator -->
-    <div v-if="loading" class="load-section">
-      <p>Loading company data...</p>
-    </div>
-    <!-- Error Message -->
-    <div v-if="errorMessage" class="error-message">
-      {{ errorMessage }}
-    </div>
+    <!-- Main Content Area -->
+    <div class="content-area">
+      <!-- Loading/Error -->
+      <div v-if="loading" class="status-message">Loading company data...</div>
+      <div v-if="errorMessage" class="status-message error">{{ errorMessage }}</div>
 
-    <!-- Modify Existing or View Mappings: Choose a company -->
-    <div
-      v-if="(action === 'edit' || action === 'view') && companyData.length && !loading"
-      class="edit-section"
-    >
-      <h2 class="subtitle">
-        {{ action === 'edit' ? 'Select Company to Modify' : 'Select Company to View' }}
-      </h2>
-      <select v-model="selectedCompanyIndex" class="dropdown select-company">
-        <option value="" disabled>Select Company</option>
-        <option
-          v-for="(company, index) in companyData"
-          :key="index"
-          :value="index"
-        >
-          {{ company.full_company_name }}
-        </option>
-      </select>
-    </div>
-
-    <!-- Add or Edit Company Form -->
-    <div
-      v-if="(action === 'add') || (action === 'edit' && selectedCompanyIndex !== '')"
-      class="form-section"
-    >
-      <h2 class="subtitle">
-        {{ action === 'add' ? 'Add New Company' : 'Modify Company' }}
-      </h2>
-
-      <div class="form-group">
-        <label>Carrier ID</label>
-        <input
-          type="number"
-          v-model="currentCompany.carrier_id"
-          placeholder="Carrier ID"
-          class="input-field"
-        />
-      </div>
-
-      <div class="form-group">
-        <label>Full Company Name</label>
-        <input
-          type="text"
-          v-model="currentCompany.full_company_name"
-          placeholder="Full Company Name"
-          class="input-field"
-        />
-      </div>
-
-      <div class="form-group">
-        <label>Simple Names <small>(comma-separated)</small></label>
-        <input
-          type="text"
-          v-model="simpleCompanyInput"
-          placeholder="Simple Names, e.g. AmWINS, AmWINS Access"
-          class="input-field"
-        />
-      </div>
-
-      <!-- MVR & Statement Checkboxes -->
-      <div class="checkbox-group form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" v-model="isMVR" />
-          Includes MVR Data
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" v-model="isStatement" />
-          Includes Statement Data
-        </label>
-      </div>
-
-      <!-- MVR Fields -->
-      <div v-if="isMVR" class="fields-section">
-        <h3>MVR Fields</h3>
-        <div class="fields-scroll">
-          <!-- Render each field using an array index -->
-          <div
-            v-for="(field, index) in mvrInputs"
-            :key="index"
-            class="field-entry"
-          >
-            <input
-              type="text"
-              v-model="field.key"
-              class="input-field key-field"
-              placeholder="Field Key"
-            />
-            <select v-model="field.value" class="input-field dropdown">
-              <option value="" disabled>Select Mapped Field</option>
-              <option
-                v-for="option in fieldOptions"
-                :key="option"
-                :value="option"
-              >
-                {{ option }}
-              </option>
-            </select>
-            <button @click="removeMvrField(index)" class="remove-btn">
-              ✖
-            </button>
+      <!-- Add Tab -->
+      <div v-if="action === 'add' && !loading" class="tab-content">
+        <div class="form-section">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="carrier-id-add">Carrier ID <span class="required">*</span></label>
+              <input id="carrier-id-add" v-model="currentCompany.carrier_id" type="number" placeholder="Enter Carrier ID" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label for="full-name-add">Full Company Name <span class="required">*</span></label>
+              <input id="full-name-add" v-model="currentCompany.full_company_name" type="text" placeholder="Enter Full Name" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label for="simple-names-add">Simple Names <span class="required">*</span> <span>(comma-separated)</span></label>
+              <input id="simple-names-add" v-model="simpleCompanyInput" type="text" placeholder="e.g., AmWINS, AX" class="input-field" />
+            </div>
           </div>
+          <div class="checkbox-group">
+            <label><input type="checkbox" v-model="isMVR" /> MVR Data</label>
+            <label><input type="checkbox" v-model="isStatement" /> Statement Data</label>
+          </div>
+          <div class="fields-container">
+            <div v-if="isMVR" class="fields-section">
+              <h3>MVR Fields</h3>
+              <div v-for="(field, index) in mvrInputs" :key="index" class="field-row">
+                <input v-model="field.key" placeholder="Key" class="input-field small" />
+                <select v-model="field.value" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="removeMvrField(index)" class="remove-btn">×</button>
+              </div>
+              <div class="field-row field-add">
+                <input v-model="newMvrKey" placeholder="Key" class="input-field small" />
+                <select v-model="newMvrValue" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="addMvrField" class="add-btn">+</button>
+              </div>
+            </div>
+            <div v-if="isStatement" class="fields-section">
+              <h3>Statement Fields</h3>
+              <div v-for="(field, index) in statementInputs" :key="index" class="field-row">
+                <input v-model="field.key" placeholder="Key" class="input-field small" />
+                <select v-model="field.value" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="removeStatementField(index)" class="remove-btn">×</button>
+              </div>
+              <div class="field-row field-add">
+                <input v-model="newStatementKey" placeholder="Key" class="input-field small" />
+                <select v-model="newStatementValue" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="addStatementField" class="add-btn">+</button>
+              </div>
+            </div>
+          </div>
+          <button @click="saveChanges" class="save-btn">Add Company</button>
+          <p v-if="saveMessage" class="save-message">{{ saveMessage }}</p>
         </div>
-        <!-- Add new MVR Field -->
-        <div class="add-new-fields">
-          <input
-            type="text"
-            v-model="newMvrKey"
-            placeholder="New MVR Field Key"
-            class="input-field"
-          />
-          <select v-model="newMvrValue" class="input-field dropdown">
-            <option value="" disabled>Select Mapped Field</option>
-            <option
-              v-for="option in fieldOptions"
-              :key="option"
-              :value="option"
-            >
-              {{ option }}
+      </div>
+
+      <!-- Edit Tab -->
+      <div v-if="action === 'edit' && !loading" class="tab-content split-content">
+        <div class="company-list">
+          <h3>Companies</h3>
+          <select v-model="selectedCompanyIndex" class="company-dropdown" size="10">
+            <option v-for="(company, index) in companyData" :key="index" :value="index">
+              {{ company.full_company_name }}
             </option>
           </select>
-          <button @click="addMvrField" class="add-field-btn">
-            ➕ Add MVR Field
-          </button>
+        </div>
+        <div class="form-section" v-if="selectedCompanyIndex !== ''">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="carrier-id-edit">Carrier ID <span class="required">*</span></label>
+              <input id="carrier-id-edit" v-model="currentCompany.carrier_id" type="number" placeholder="Enter Carrier ID" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label for="full-name-edit">Full Company Name <span class="required">*</span></label>
+              <input id="full-name-edit" v-model="currentCompany.full_company_name" type="text" placeholder="Enter Full Name" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label for="simple-names-edit">Simple Names <span class="required">*</span> <span>(comma-separated)</span></label>
+              <input id="simple-names-edit" v-model="simpleCompanyInput" type="text" placeholder="e.g., AmWINS, AX" class="input-field" />
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <label><input type="checkbox" v-model="isMVR" /> MVR Data</label>
+            <label><input type="checkbox" v-model="isStatement" /> Statement Data</label>
+          </div>
+          <div class="fields-container">
+            <div v-if="isMVR" class="fields-section">
+              <h3>MVR Fields</h3>
+              <div v-for="(field, index) in mvrInputs" :key="index" class="field-row">
+                <input v-model="field.key" placeholder="Key" class="input-field small" />
+                <select v-model="field.value" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="removeMvrField(index)" class="remove-btn">×</button>
+              </div>
+              <div class="field-row field-add">
+                <input v-model="newMvrKey" placeholder="Key" class="input-field small" />
+                <select v-model="newMvrValue" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="addMvrField" class="add-btn">+</button>
+              </div>
+            </div>
+            <div v-if="isStatement" class="fields-section">
+              <h3>Statement Fields</h3>
+              <div v-for="(field, index) in statementInputs" :key="index" class="field-row">
+                <input v-model="field.key" placeholder="Key" class="input-field small" />
+                <select v-model="field.value" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="removeStatementField(index)" class="remove-btn">×</button>
+              </div>
+              <div class="field-row field-add">
+                <input v-model="newStatementKey" placeholder="Key" class="input-field small" />
+                <select v-model="newStatementValue" class="dropdown small">
+                  <option value="" disabled>Select Value</option>
+                  <option v-for="option in fieldOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <button @click="addStatementField" class="add-btn">+</button>
+              </div>
+            </div>
+          </div>
+          <button @click="saveChanges" class="save-btn">Save Changes</button>
+          <p v-if="saveMessage" class="save-message">{{ saveMessage }}</p>
         </div>
       </div>
 
-      <!-- Statement Fields -->
-      <div v-if="isStatement" class="fields-section">
-        <h3>Statement Fields</h3>
-        <div class="fields-scroll">
-          <div
-            v-for="(field, index) in statementInputs"
-            :key="index"
-            class="field-entry"
-          >
-            <input
-              type="text"
-              v-model="field.key"
-              class="input-field key-field"
-              placeholder="Field Key"
-            />
-            <select v-model="field.value" class="input-field dropdown">
-              <option value="" disabled>Select Mapped Field</option>
-              <option
-                v-for="option in fieldOptions"
-                :key="option"
-                :value="option"
-              >
-                {{ option }}
-              </option>
-            </select>
-            <button @click="removeStatementField(index)" class="remove-btn">
-              ✖
-            </button>
-          </div>
-        </div>
-        <!-- Add new Statement Field -->
-        <div class="add-new-fields">
-          <input
-            type="text"
-            v-model="newStatementKey"
-            placeholder="New Statement Field Key"
-            class="input-field"
-          />
-          <select v-model="newStatementValue" class="input-field dropdown">
-            <option value="" disabled>Select Mapped Field</option>
-            <option
-              v-for="option in fieldOptions"
-              :key="option"
-              :value="option"
-            >
-              {{ option }}
+      <!-- View Tab -->
+      <div v-if="action === 'view' && !loading" class="tab-content split-content">
+        <div class="company-list">
+          <h3>Companies</h3>
+          <select v-model="selectedCompanyIndex" class="company-dropdown" size="10">
+            <option v-for="(company, index) in companyData" :key="index" :value="index">
+              {{ company.full_company_name }}
             </option>
           </select>
-          <button @click="addStatementField" class="add-field-btn">
-            ➕ Add Statement Field
-          </button>
         </div>
-      </div>
-
-      <!-- Save Button -->
-      <button @click="saveChanges" class="save-btn">
-        {{ action === 'add' ? 'Add Company' : 'Save Changes' }}
-      </button>
-      <p v-if="saveMessage" class="save-message">{{ saveMessage }}</p>
-    </div>
-
-    <!-- View-Only Company Mappings -->
-    <div v-if="action === 'view' && selectedCompanyIndex !== ''" class="view-only-section">
-      <h2 class="subtitle">View Company Mappings</h2>
-      <div>
-        <h4>MVR Fields (read-only)</h4>
-        <div
-          v-if="Object.keys(currentCompany.mvr_fields || {}).length"
-          class="view-mapping-list"
-        >
-          <ul>
-            <li
-              v-for="(value, key) in currentCompany.mvr_fields"
-              :key="key"
-            >
-              <strong>{{ key }}</strong> → {{ value }}
-            </li>
-          </ul>
+        <div class="view-section" v-if="selectedCompanyIndex !== ''">
+          <div class="view-grid">
+            <div><strong>Carrier ID:</strong> {{ currentCompany.carrier_id }}</div>
+            <div><strong>Full Name:</strong> {{ currentCompany.full_company_name }}</div>
+            <div><strong>Simple Names:</strong> {{ currentCompany.simple_company.join(', ') }}</div>
+          </div>
+          <div class="mappings">
+            <div>
+              <h3>MVR Fields</h3>
+              <ul v-if="Object.keys(currentCompany.mvr_fields).length">
+                <li v-for="(value, key) in currentCompany.mvr_fields" :key="key">{{ key }} → {{ value }}</li>
+              </ul>
+              <p v-else>No fields defined.</p>
+            </div>
+            <div>
+              <h3>Statement Fields</h3>
+              <ul v-if="Object.keys(currentCompany.statement_fields).length">
+                <li v-for="(value, key) in currentCompany.statement_fields" :key="key">{{ key }} → {{ value }}</li>
+              </ul>
+              <p v-else>No fields defined.</p>
+            </div>
+          </div>
         </div>
-        <p v-else>No MVR fields defined.</p>
-      </div>
-
-      <div>
-        <h4>Statement Fields (read-only)</h4>
-        <div
-          v-if="Object.keys(currentCompany.statement_fields || {}).length"
-          class="view-mapping-list"
-        >
-          <ul>
-            <li
-              v-for="(value, key) in currentCompany.statement_fields"
-              :key="key"
-            >
-              <strong>{{ key }}</strong> → {{ value }}
-            </li>
-          </ul>
-        </div>
-        <p v-else>No Statement fields defined.</p>
       </div>
     </div>
 
-    <!-- Last Edited Log Section -->
+    <!-- Log Section (Sticky Footer) -->
     <div class="log-section" v-if="lastEditedLog">
-      <p>
-        Last Edited by:
-        <span class="log-user" @click="toggleLogDetails" style="cursor: pointer; text-decoration: underline;">
-          {{ lastEditedLog.user_email }}
-        </span>
-        on {{ formatDate(lastEditedLog.change_timestamp) }}
-      </p>
+      <p>Last edited by <span class="log-user" @click="toggleLogDetails">{{ lastEditedLog.user_email }}</span> on {{ formatDate(lastEditedLog.change_timestamp) }}</p>
       <div v-if="showLogDetails" class="log-details">
-        <p>Action: {{ lastEditedLog.action }}</p>
-        <!-- Diff output with highlighted changes -->
+        <p><strong>Action:</strong> {{ lastEditedLog.action }}</p>
         <div class="diff-container" v-html="diffHtml"></div>
       </div>
     </div>
@@ -278,56 +213,24 @@ export default {
   name: "ConfigurationView",
   data() {
     return {
-      // action can be "add", "edit", or "view"
-      action: "",
+      action: "add",
       companyData: [],
       selectedCompanyIndex: "",
-      currentCompany: {
-        carrier_id: "",
-        full_company_name: "",
-        simple_company: [],
-        mvr_fields: {},
-        statement_fields: {},
-      },
-      // Store original company data for logging purposes when editing
+      currentCompany: { carrier_id: "", full_company_name: "", simple_company: [], mvr_fields: {}, statement_fields: {} },
       originalCompany: {},
       simpleCompanyInput: "",
-
-      // Use arrays for dynamic fields
       mvrInputs: [],
       statementInputs: [],
-
-      // New field inputs
       newMvrKey: "",
       newMvrValue: "",
       newStatementKey: "",
       newStatementValue: "",
-
-      // Toggles
       isMVR: false,
       isStatement: false,
-
-      // Predefined field options
-      fieldOptions: [
-        "full_name",
-        "order_date",
-        "premium",
-        "gross_comission",
-        "effective_date",
-        "transaction_type",
-        "fee",
-        "User",
-        "charge",
-        "credit",
-        "policy_statement",
-        "carrier_name"
-      ],
-
+      fieldOptions: ["full_name", "order_date", "premium", "gross_comission", "effective_date", "transaction_type", "fee", "User", "charge", "credit", "policy_statement", "carrier_name"],
       loading: false,
       errorMessage: "",
       saveMessage: "",
-
-      // Log info
       lastEditedLog: null,
       showLogDetails: false,
     };
@@ -335,59 +238,27 @@ export default {
   computed: {
     diffHtml() {
       if (!this.lastEditedLog) return "";
-      // Attempt to parse the JSON values; if parsing fails, fall back to raw preformatted text.
-      let oldParsed, newParsed;
-      try {
-        oldParsed = this.lastEditedLog.old_value
-          ? JSON.parse(this.lastEditedLog.old_value)
-          : {};
-        newParsed = this.lastEditedLog.new_value
-          ? JSON.parse(this.lastEditedLog.new_value)
-          : {};
-      } catch (e) {
-        return `<pre>Old Value: ${this.lastEditedLog.old_value}\nNew Value: ${this.lastEditedLog.new_value}</pre>`;
-      }
-      // Pretty-print the JSON with indentation.
-      const oldStr = JSON.stringify(oldParsed, null, 2);
-      const newStr = JSON.stringify(newParsed, null, 2);
-      // Compute the diff using diffJson.
-      const diff = diffJson(oldStr, newStr);
-      let html = "";
-      diff.forEach(part => {
-        // Added parts in green, removed parts in red, unchanged in black.
-        const color = part.added ? "green" : part.removed ? "red" : "black";
-        // Replace newlines with <br> to preserve formatting.
-        const text = part.value.replace(/\n/g, "<br>");
-        html += `<span style="color:${color}; white-space: pre-wrap;">${text}</span>`;
-      });
-      return html;
+      let oldParsed = this.lastEditedLog.old_value ? JSON.parse(this.lastEditedLog.old_value) : {};
+      let newParsed = this.lastEditedLog.new_value ? JSON.parse(this.lastEditedLog.new_value) : {};
+      const diff = diffJson(JSON.stringify(oldParsed, null, 2), JSON.stringify(newParsed, null, 2));
+      return diff.map(part => `<span style="color:${part.added ? '#2ecc71' : part.removed ? '#e74c3c' : '#7f8c8d'}">${part.value.replace(/\n/g, "<br>")}</span>`).join("");
     },
   },
   mounted() {
-    const userStore = useUserStore();
-    console.log("Logged in user email:", userStore.user.email);
     this.fetchLastEditedLog();
+    this.fetchCompanyData();
   },
   methods: {
-    // Called when user picks an action
     chooseAction(selected) {
       this.action = selected;
       this.selectedCompanyIndex = "";
       this.resetCurrentCompany();
       this.saveMessage = "";
       this.errorMessage = "";
-      this.fetchCompanyData();
+      if (selected !== "add") this.fetchCompanyData();
     },
-
-    // Reset the company form.
     resetCurrentCompany() {
-      this.currentCompany = {
-        carrier_id: "",
-        full_company_name: "",
-        simple_company: [],
-        mvr_fields: {},
-        statement_fields: {},
-      };
+      this.currentCompany = { carrier_id: "", full_company_name: "", simple_company: [], mvr_fields: {}, statement_fields: {} };
       this.originalCompany = {};
       this.simpleCompanyInput = "";
       this.isMVR = false;
@@ -399,132 +270,89 @@ export default {
       this.newStatementKey = "";
       this.newStatementValue = "";
     },
-
-    // Fetch company metadata.
     async fetchCompanyData() {
-      if (this.companyData.length) return; // already loaded
+      if (this.companyData.length) return;
       this.loading = true;
-      this.errorMessage = "";
       try {
-        const response = await axios.get(
-          "https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json"
-        );
+        const response = await axios.get("https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json");
         this.companyData = response.data || [];
       } catch (error) {
-        console.error("Error fetching data:", error);
         this.errorMessage = "Failed to load company data.";
       } finally {
         this.loading = false;
       }
     },
-
-    // Fetch the last edited log entry from the database.
     async fetchLastEditedLog() {
       try {
         const response = await axios.post("https://dev.rocox.co/api/query_db", {
-          query:
-            "SELECT TOP 1 user_email, change_timestamp, action, old_value, new_value FROM dbo.configuration_logs ORDER BY change_timestamp DESC"
+          query: "SELECT TOP 1 user_email, change_timestamp, action, old_value, new_value FROM dbo.configuration_logs ORDER BY change_timestamp DESC"
         });
-        if (response.data && response.data.length > 0) {
-          this.lastEditedLog = response.data[0];
-        }
+        if (response.data?.length) this.lastEditedLog = response.data[0];
       } catch (error) {
-        console.error("Error fetching last edited log:", error);
+        console.error("Error fetching log:", error);
       }
     },
-
-    // Toggle display of log details.
     toggleLogDetails() {
       this.showLogDetails = !this.showLogDetails;
     },
-
-    // MVR Field methods
     addMvrField() {
       if (this.newMvrKey.trim() && this.newMvrValue.trim()) {
-        this.mvrInputs.push({
-          key: this.newMvrKey.trim(),
-          value: this.newMvrValue.trim()
-        });
+        this.mvrInputs.push({ key: this.newMvrKey.trim(), value: this.newMvrValue.trim() });
         this.newMvrKey = "";
         this.newMvrValue = "";
       } else {
-        alert("Please enter a Field Key and choose a Mapped Field for MVR.");
+        this.errorMessage = "Please enter both a key and value.";
       }
     },
     removeMvrField(index) {
       this.mvrInputs.splice(index, 1);
     },
-
-    // Statement Field methods
     addStatementField() {
       if (this.newStatementKey.trim() && this.newStatementValue.trim()) {
-        this.statementInputs.push({
-          key: this.newStatementKey.trim(),
-          value: this.newStatementValue.trim()
-        });
+        this.statementInputs.push({ key: this.newStatementKey.trim(), value: this.newStatementValue.trim() });
         this.newStatementKey = "";
         this.newStatementValue = "";
       } else {
-        alert("Please enter a Field Key and choose a Mapped Field for Statement.");
+        this.errorMessage = "Please enter both a key and value.";
       }
     },
     removeStatementField(index) {
       this.statementInputs.splice(index, 1);
     },
-
-    // Helper: Convert array of field objects to an object mapping keys to values
     arrayToObject(arr) {
-      const obj = {};
-      arr.forEach(item => {
-        if (item.key) {
-          obj[item.key] = item.value;
-        }
-      });
-      return obj;
+      return Object.fromEntries(arr.map(item => [item.key, item.value]));
     },
-
-    // Save changes (for add or edit)
     async saveChanges() {
-      // Build the final company object.
-      this.currentCompany.simple_company = this.simpleCompanyInput
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
+      // Validation for required fields
+      if (!this.currentCompany.carrier_id || !this.currentCompany.full_company_name || !this.simpleCompanyInput.trim()) {
+        this.errorMessage = "Please fill out all required fields: Carrier ID, Full Company Name, and Simple Names.";
+        this.saveMessage = ""; // Clear success message if validation fails
+        return;
+      }
+
+      this.currentCompany.simple_company = this.simpleCompanyInput.split(",").map(s => s.trim()).filter(Boolean);
       this.currentCompany.mvr_fields = this.isMVR ? this.arrayToObject(this.mvrInputs) : {};
       this.currentCompany.statement_fields = this.isStatement ? this.arrayToObject(this.statementInputs) : {};
 
-      if (this.action === "add") {
-        this.companyData.push({ ...this.currentCompany });
-      } else if (this.action === "edit" && this.selectedCompanyIndex !== "") {
-        this.companyData[this.selectedCompanyIndex] = { ...this.currentCompany };
-      }
+      if (this.action === "add") this.companyData.push({ ...this.currentCompany });
+      else if (this.action === "edit" && this.selectedCompanyIndex !== "") this.companyData[this.selectedCompanyIndex] = { ...this.currentCompany };
 
       try {
-        const resp = await axios.post("https://dev.rocox.co/api/create_file", {
+        await axios.post("https://dev.rocox.co/api/create_file", {
           directory: "Static Files/",
           file_name: "company_metadata.json",
           content: this.companyData,
         });
-        console.log("Save Response:", resp.data);
-        this.saveMessage = "Changes saved successfully!";
-
-        // If editing, store the original values for logging (if not already set)
-        if (this.action === "edit" && Object.keys(this.originalCompany).length === 0) {
-          this.originalCompany = JSON.parse(JSON.stringify(this.companyData[this.selectedCompanyIndex]));
-        }
-
-        // Update the log table
+        this.saveMessage = "Saved successfully!";
+        this.errorMessage = ""; // Clear error message on success
         await this.updateLog();
-
-        // Refresh the last edited log info
         this.fetchLastEditedLog();
+        if (this.action === "add") this.resetCurrentCompany();
       } catch (error) {
-        console.error("Error saving file:", error);
-        this.saveMessage = "Failed to save changes.";
+        this.saveMessage = "Failed to save.";
+        this.errorMessage = "An error occurred while saving. Please try again.";
       }
     },
-
-    // Update the log table by calling the update_sql endpoint.
     async updateLog() {
       const userStore = useUserStore();
       const logData = {
@@ -535,42 +363,29 @@ export default {
         old_value: this.action === "edit" ? JSON.stringify(this.originalCompany) : "",
         new_value: JSON.stringify(this.currentCompany)
       };
-      try {
-        const response = await axios.post("https://dev.rocox.co/api/update_sql", {
-          table: "configuration_logs",
-          data: logData
-        });
-        console.log("Log update response:", response.data);
-      } catch (error) {
-        console.error("Error updating log:", error);
-      }
+      await axios.post("https://dev.rocox.co/api/update_sql", { table: "configuration_logs", data: logData });
     },
-
-    // Format date string for display.
     formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleString();
+      return new Date(dateString).toLocaleString();
     },
   },
   watch: {
-    // When a company is selected, load its data into the form and store original values.
     selectedCompanyIndex(newVal) {
-      if (newVal !== "") {
+      if (newVal !== "" && this.companyData[newVal]) {
         const selected = this.companyData[newVal];
-        if (!selected) return;
-        this.currentCompany = JSON.parse(JSON.stringify(selected));
-        this.originalCompany = JSON.parse(JSON.stringify(selected));
+        this.currentCompany = {
+          carrier_id: selected.carrier_id || "",
+          full_company_name: selected.full_company_name || "",
+          simple_company: Array.isArray(selected.simple_company) ? [...selected.simple_company] : [],
+          mvr_fields: selected.mvr_fields || {},
+          statement_fields: selected.statement_fields || {}
+        };
+        this.originalCompany = { ...this.currentCompany };
         this.simpleCompanyInput = this.currentCompany.simple_company.join(", ");
-        this.isMVR = Object.keys(this.currentCompany.mvr_fields || {}).length > 0;
-        this.mvrInputs = Object.keys(this.currentCompany.mvr_fields || {}).map(key => ({
-          key,
-          value: this.currentCompany.mvr_fields[key]
-        }));
-        this.isStatement = Object.keys(this.currentCompany.statement_fields || {}).length > 0;
-        this.statementInputs = Object.keys(this.currentCompany.statement_fields || {}).map(key => ({
-          key,
-          value: this.currentCompany.statement_fields[key]
-        }));
+        this.isMVR = !!Object.keys(this.currentCompany.mvr_fields).length;
+        this.mvrInputs = Object.entries(this.currentCompany.mvr_fields).map(([key, value]) => ({ key, value }));
+        this.isStatement = !!Object.keys(this.currentCompany.statement_fields).length;
+        this.statementInputs = Object.entries(this.currentCompany.statement_fields).map(([key, value]) => ({ key, value }));
         this.newMvrKey = "";
         this.newMvrValue = "";
         this.newStatementKey = "";
@@ -584,234 +399,433 @@ export default {
 <style scoped>
 /* Container */
 .settings-container {
-  max-width: 950px;
-  margin: 30px auto;
-  padding: 20px;
+  max-width: 1280px;
+  margin: 20px auto;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
-  border-radius: 10px;
-  font-family: Arial, sans-serif;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-  color: #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+/* Header */
+.header {
+  padding: 15px 25px;
+  background: #2c3e50;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(41, 128, 185, 0.1));
+  z-index: 0;
 }
 
 .title {
+  font-size: 24px;
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin: 0;
+  color: #ffffff;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
 }
 
-/* Action Buttons */
-.action-selection {
-  text-align: center;
-  margin-bottom: 1.5rem;
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e0e6ed;
+  padding: 10px;
 }
-.action-btn {
-  background-color: #0d6efd;
-  color: #fff;
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  background: transparent;
   border: none;
-  margin: 0 10px;
   font-size: 16px;
-  padding: 10px 16px;
-  border-radius: 6px;
+  color: #7f8c8d;
   cursor: pointer;
-}
-.action-btn:hover {
-  background-color: #0a58ca;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  position: relative;
 }
 
-/* Load Section */
-.load-section {
-  text-align: center;
-  margin-bottom: 1.5rem;
+.tab:hover {
+  color: #2c3e50;
+  background: #e0e6ed;
+}
+
+.tab.active {
+  color: #3498db;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #3498db;
+}
+
+/* Content Area */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.tab-content {
+  height: 100%;
+}
+
+/* Split Content */
+.split-content {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.company-list {
+  flex: 1;
+  padding: 15px;
+  background: #ffffff;
+}
+
+.company-list h3 {
   font-size: 16px;
-  color: #555;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-  margin-top: 10px;
-  text-align: center;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-weight: 600;
 }
 
-/* Edit/Select Section */
-.edit-section {
-  margin-top: 20px;
-}
-.subtitle {
-  margin-bottom: 1rem;
-  text-align: center;
-}
-.dropdown.select-company {
-  display: block;
-  margin: 0 auto;
-  max-width: 300px;
-  padding: 8px;
+.company-dropdown {
+  width: 100%;
+  height: calc(100% - 32px);
+  padding: 10px;
   font-size: 14px;
+  border: 1px solid #dfe6e9;
   border-radius: 6px;
-  border: 1px solid #ccc;
+  background: #f9fbfc;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  appearance: none;
+}
+
+.company-dropdown option {
+  padding: 8px 12px;
+  color: #2c3e50;
+  transition: background 0.2s ease;
+}
+
+.company-dropdown option:hover {
+  background: #ecf0f1;
+}
+
+.company-dropdown:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 6px rgba(52, 152, 219, 0.3);
+  outline: none;
+}
+
+/* Status Messages */
+.status-message {
+  text-align: center;
+  font-size: 16px;
+  padding: 15px;
+  color: #7f8c8d;
+  background: #f8fafc;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.status-message.error {
+  color: #e74c3c;
+  background: #fef0f0;
 }
 
 /* Form Section */
 .form-section {
-  background: #f8f9fa;
+  flex: 2;
   padding: 20px;
-  border-radius: 8px;
-  margin-top: 20px;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow-y: auto;
 }
+
+.form-grid {
+  display: grid;
+  gap: 15px;
+}
+
 .form-group {
-  margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
 }
+
 .form-group label {
-  margin-bottom: 5px;
-  font-weight: 600;
-}
-.input-field {
-  padding: 8px;
   font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  color: #2c3e50;
+  margin-bottom: 5px;
+  font-weight: 500;
 }
 
-/* Checkbox Group */
+.form-group label span.required {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.form-group label span:not(.required) {
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.input-field {
+  padding: 10px;
+  font-size: 15px;
+  border: 1px solid #dfe6e9;
+  border-radius: 6px;
+  background: #fff;
+  transition: border-color 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
 .checkbox-group {
   display: flex;
-  gap: 15px;
-  align-items: center;
+  gap: 20px;
+  margin: 15px 0;
 }
-.checkbox-label {
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
   font-size: 14px;
+  color: #2c3e50;
+}
+
+.checkbox-group input {
+  margin-right: 8px;
+  accent-color: #3498db;
 }
 
 /* Fields Section */
-.fields-section {
-  background: #ffffff;
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-.fields-section h3 {
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-}
-.fields-scroll {
-  max-height: 200px;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-.field-entry {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.key-field {
-  flex: 1;
-}
-.add-new-fields {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
+.fields-container {
+  margin-top: 15px;
 }
 
-/* Remove and Add Buttons */
-.remove-btn {
-  background: none;
-  color: #dc3545;
-  font-size: 18px;
-  border: none;
-  cursor: pointer;
-  padding: 0 8px;
-  align-self: center;
+.fields-section {
+  margin-bottom: 15px;
 }
-.remove-btn:hover {
-  text-shadow: 0 0 2px #dc3545;
+
+.fields-section h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
-.add-field-btn {
-  background: #20c997;
-  color: #fff;
+
+.field-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.input-field.small, .dropdown.small {
+  padding: 8px;
   font-size: 14px;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
 }
-.add-field-btn:hover {
-  background: #0fb18d;
+
+.field-add {
+  margin-top: 8px;
+}
+
+.remove-btn {
+  padding: 6px 10px;
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.remove-btn:hover {
+  background: #c0392b;
+}
+
+.add-btn {
+  padding: 6px 10px;
+  background: #2ecc71;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.add-btn:hover {
+  background: #27ae60;
 }
 
 /* Save Button */
 .save-btn {
-  background-color: #28a745;
+  width: 100%;
+  max-width: 180px;
+  margin: 20px auto 0;
+  padding: 12px;
+  background: #3498db;
   color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-  padding: 10px 18px;
   border: none;
   border-radius: 6px;
+  font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
   display: block;
-  margin: 0 auto;
-  margin-top: 20px;
-}
-.save-btn:hover {
-  background-color: #218838;
-}
-.save-message {
-  text-align: center;
-  margin-top: 15px;
-  font-weight: bold;
-  color: #333;
+  transition: background 0.2s ease;
 }
 
-/* View-Only Section */
-.view-only-section {
-  background: #fdfdfd;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  margin-top: 20px;
-  padding: 15px;
+.save-btn:hover {
+  background: #2980b9;
 }
-.view-only-section h2 {
+
+.save-message {
   text-align: center;
-  margin-bottom: 1rem;
-}
-.view-mapping-list ul {
-  margin: 0;
-  padding-left: 1rem;
-}
-.view-mapping-list li {
-  margin: 4px 0;
   font-size: 14px;
+  color: #2ecc71;
+  margin-top: 10px;
+}
+
+/* View Section */
+.view-section {
+  flex: 2;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 6px;
+}
+
+.view-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.view-grid div {
+  font-size: 15px;
+  color: #7f8c8d;
+}
+
+.view-grid strong {
+  color: #2c3e50;
+}
+
+.mappings {
+  display: grid;
+  gap: 15px;
+}
+
+.mappings h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.mappings ul {
+  list-style: none;
+  padding: 0;
+}
+
+.mappings li {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 6px 0;
+}
+
+.mappings p {
+  font-size: 14px;
+  color: #95a5a6;
 }
 
 /* Log Section */
 .log-section {
-  margin-top: 20px;
   padding: 15px;
-  background: #eef;
-  border: 1px solid #ccd;
-  border-radius: 8px;
-}
-.log-user {
-  font-weight: bold;
-  color: #007bff;
-}
-.log-details {
-  margin-top: 10px;
-  background: #f8f9fa;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  background: #f8fafc;
+  border-top: 1px solid #e0e6ed;
+  font-size: 13px;
+  color: #7f8c8d;
 }
 
-/* Diff Container */
-.diff-container {
-  background: #f7f7f7;
+.log-user {
+  color: #3498db;
+  cursor: pointer;
+}
+
+.log-user:hover {
+  text-decoration: underline;
+}
+
+.log-details {
+  margin-top: 8px;
   padding: 10px;
+  background: #fff;
+  border: 1px solid #e0e6ed;
   border-radius: 6px;
+}
+
+.diff-container {
   font-family: monospace;
-  white-space: pre-wrap;
-  margin-top: 10px;
+  font-size: 13px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Scrollbar Styling */
+.content-area::-webkit-scrollbar,
+.form-section::-webkit-scrollbar,
+.view-section::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-area::-webkit-scrollbar-track,
+.form-section::-webkit-scrollbar-track,
+.view-section::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 4px;
+}
+
+.content-area::-webkit-scrollbar-thumb,
+.form-section::-webkit-scrollbar-thumb,
+.view-section::-webkit-scrollbar-thumb {
+  background: #b0bec5;
+  border-radius: 4px;
+}
+
+.content-area::-webkit-scrollbar-thumb:hover,
+.form-section::-webkit-scrollbar-thumb:hover,
+.view-section::-webkit-scrollbar-thumb:hover {
+  background: #95a5a6;
 }
 </style>
