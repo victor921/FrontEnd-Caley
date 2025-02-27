@@ -14,12 +14,12 @@
     </div>
 
     <!-- Run History List -->
-    <ul v-else-if="formattedFiles.length" class="file-list">
+    <ul v-else-if="paginatedFiles.length" class="file-list">
       <li
-        v-for="(file, index) in formattedFiles"
-        :key="index"
+        v-for="(file, index) in paginatedFiles"
+        :key="file.fullPath"
         class="file-item"
-        :class="{ latest: index === 0 }"
+        :class="{ latest: index === 0 && currentPage === 1 }"
       >
         <a
           href="#"
@@ -35,6 +35,17 @@
       </li>
     </ul>
     <p v-else class="loading-text">No valid files to display.</p>
+
+    <!-- Pagination Controls -->
+    <div class="pagination" v-if="totalPages > 1">
+      <button @click="previousPage" :disabled="currentPage === 1">
+        Previous
+      </button>
+      <span>Page {{ currentPage }} of {{ totalPages }}</span>
+      <button @click="nextPage" :disabled="currentPage === totalPages">
+        Next
+      </button>
+    </div>
 
     <!-- Modal for Detailed Info -->
     <div
@@ -169,6 +180,7 @@
 
 <script>
 import { createFocusTrap } from 'focus-trap';
+import { useUserStore } from '@/stores/userStore'
 
 export default {
   data() {
@@ -182,6 +194,10 @@ export default {
 
       filesLoading: true, // Show spinner while loading
 
+      // Pagination
+      currentPage: 1,
+      pageSize: 10,
+
       // Polling
       pollingInterval: null, // Interval reference
       pollingCountdown: 0, // Countdown in seconds for next poll
@@ -190,6 +206,10 @@ export default {
       // Focus Trap
       trap: null,
     };
+  },
+  setup() {
+    const userStore = useUserStore();
+    return { userStore };
   },
   computed: {
     // Check if selectedFileDetails.RESULT is a string for FAIL scenario
@@ -200,14 +220,31 @@ export default {
         typeof this.selectedFileDetails.RESULT === "string"
       );
     },
+    // Sorted files descending by displayName (latest first)
+    sortedFiles() {
+      return this.formattedFiles.slice().sort((a, b) => {
+        const aTime = new Date(a.displayName).getTime();
+        const bTime = new Date(b.displayName).getTime();
+        return bTime - aTime;
+      });
+    },
+    // Paginated files based on current page and pageSize
+    paginatedFiles() {
+      const start = (this.currentPage - 1) * this.pageSize;
+      const end = start + this.pageSize;
+      return this.sortedFiles.slice(start, end);
+    },
+    totalPages() {
+      return Math.ceil(this.sortedFiles.length / this.pageSize);
+    },
   },
   methods: {
     async loadFiles() {
+
       this.filesLoading = true;
       try {
-        const response = await fetch(
-          "https://dev.rocox.co/api/fetch_files?folder=logs"
-        );
+        const response = await fetch("https://dev.rocox.co/api/fetch_files?folder=logs"
+      );
         if (!response.ok) {
           throw new Error(`Could not load files. HTTP ${response.status}`);
         }
@@ -239,16 +276,10 @@ export default {
           })
           .filter((f) => f !== null);
 
-        // Sort descending by timestamp and take the last 10 runs
-        this.formattedFiles = rawFiles
-          .sort((a, b) => {
-            const aTime = new Date(a.displayName).getTime();
-            const bTime = new Date(b.displayName).getTime();
-            return bTime - aTime;
-          })
-          .slice(0, 10); // Limit to the 10 most recent runs
+        // Show all files instead of slicing to 10
+        this.formattedFiles = rawFiles;
 
-        // Fetch the actual status from get_file_content
+        // Fetch the actual status from get_file_content for each file
         await Promise.all(
           this.formattedFiles.map((file) => this.fetchFileStatus(file))
         );
@@ -405,6 +436,25 @@ export default {
     handleTab(e) {
       e.preventDefault();
     },
+
+    // Pagination controls
+    goToPage(pageNumber) {
+      if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+        this.currentPage = pageNumber;
+      }
+    },
+
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+      }
+    },
+
+    previousPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+      }
+    },
   },
   mounted() {
     this.updateCurrentDatetime();
@@ -520,7 +570,7 @@ export default {
 }
 
 .badge-running {
-  background: #1a69d7; /* Blue */
+  background: #1a69d7;
 }
 .badge-completed {
   background: #4caf50;
@@ -533,6 +583,30 @@ export default {
 }
 .badge-unknown {
   background: #9e9e9e;
+}
+
+/* Pagination styling */
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  gap: 10px;
+}
+.pagination button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+.pagination button:hover {
+  background: #f0f0f0;
+}
+.pagination button:disabled {
+  background: #e0e0e0;
+  cursor: not-allowed;
 }
 
 /* No valid files */
@@ -682,15 +756,5 @@ export default {
 .link-button:hover {
   text-decoration: underline;
   color: #0056b3;
-}
-
-/* Keyframes for spinner */
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
 }
 </style>

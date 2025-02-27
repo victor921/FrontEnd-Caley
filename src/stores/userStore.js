@@ -14,6 +14,7 @@ export const useUserStore = defineStore('userStore', {
       const now = new Date();
       return state.user.tokenExpiration && new Date(state.user.tokenExpiration) > now;
     },
+    token: (state) => state.user ? state.user.token : null,
   },
 
   actions: {

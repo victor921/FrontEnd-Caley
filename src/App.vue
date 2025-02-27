@@ -107,9 +107,9 @@ onUnmounted(() => {
           <img src="@/assets/icons/run.svg" alt="Run Files" />
           <span>Run Files</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/uploadFiles')">
-          <img src="@/assets/icons/upload.svg" alt="Upload Files" />
-          <span>Upload Files</span>
+        <div class="menu-item" @click="navigateTo('/fileManagement')">
+          <img src="@/assets/icons/upload.svg" alt="File Management" />
+          <span>File Management</span>
         </div>
         <div class="menu-item" @click="navigateTo('/searchContact')">
           <img src="@/assets/icons/search.svg" alt="Search Contact" />

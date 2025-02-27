@@ -8,6 +8,7 @@ import PrimeVue from "primevue/config";
 import Toast from 'primevue/toast';
 import ToastService from 'primevue/toastservice'; // Add this import
 import Aura from '@primevue/themes/aura';
+import Lara from '@primevue/themes/lara'
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
 // Import Prism.js for SQL syntax highlighting
@@ -25,7 +26,7 @@ app.use(pinia)
 // Register PrimeVue with Toast component and ToastService
 app.use(PrimeVue, {
   theme: {
-    preset: Aura,
+    preset: Lara,
     options: {
       prefix: 'p',
       darkModeSelector: '.my-app-light',

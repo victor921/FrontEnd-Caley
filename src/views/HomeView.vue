@@ -7,7 +7,7 @@
       <div class="filters">
         <div class="filter-group">
           <label>Start Date</label>
-          <Calendar
+          <DatePicker
             v-model="startDate"
             dateFormat="yy-mm-dd"
             showIcon
@@ -18,7 +18,7 @@
         </div>
         <div class="filter-group">
           <label>End Date</label>
-          <Calendar
+          <DatePicker
             v-model="endDate"
             dateFormat="yy-mm-dd"
             showIcon
@@ -29,7 +29,7 @@
         </div>
         <div class="filter-group">
           <label>Table</label>
-          <Dropdown
+          <Select
             v-model="selectedTable"
             :options="availableTables"
             optionLabel="name"
@@ -124,13 +124,16 @@
           :header="key"
           sortable
           filter
-          :filterMatchModeOptions="[{ label: 'Equals', value: 'equals' }, { label: 'Contains', value: 'contains' }]"
+          :filterMatchModeOptions="[
+            { label: 'Equals', value: 'equals' },
+            { label: 'Contains', value: 'contains' },
+          ]"
           :filterMenuStyle="{ width: '200px' }"
-          style="white-space: nowrap; text-overflow: ellipsis; overflow: hidden;"
+          style="white-space: nowrap; text-overflow: ellipsis; overflow: hidden"
         >
-          <!-- Custom filter template for dropdown of unique values -->
+          <!-- Custom filter template for Select of unique values -->
           <template #filter="{ filterModel, filterCallback }">
-            <Dropdown
+            <Select
               v-model="filterModel.value"
               :options="getUniqueValues(key)"
               optionLabel="label"
@@ -142,7 +145,7 @@
               <template #option="slotProps">
                 <span>{{ slotProps.option.label }}</span>
               </template>
-            </Dropdown>
+            </Select>
           </template>
         </Column>
       </DataTable>
@@ -164,7 +167,12 @@
         <li v-for="field in tableFields" :key="field">{{ field }}</li>
       </ul>
       <template #footer>
-        <Button label="Close" icon="pi pi-times" class="p-button-secondary" @click="showFieldsDialog = false" />
+        <Button
+          label="Close"
+          icon="pi pi-times"
+          class="p-button-secondary"
+          @click="showFieldsDialog = false"
+        />
       </template>
     </Dialog>
 
@@ -174,184 +182,219 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
-import axios from "axios";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Calendar from "primevue/calendar";
-import Button from "primevue/button";
-import Dropdown from "primevue/dropdown";
-import Textarea from "primevue/textarea";
-import Toast from "primevue/toast";
-import Dialog from "primevue/dialog";
-import { useToast } from "primevue/usetoast";
-import { exportCSV } from "../utils/exportCSV"; // Assuming this utility exists
-import "prismjs/themes/prism.css";
-import Prism from "prismjs";
+import { ref, computed, watch } from 'vue'
+import axios from 'axios'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import DatePicker from 'primevue/datepicker'
+import Button from 'primevue/button'
+import Select from 'primevue/select';
+import Textarea from 'primevue/textarea'
+import Toast from 'primevue/toast'
+import Dialog from 'primevue/dialog'
+import { useToast } from 'primevue/usetoast'
+import { exportCSV } from '../utils/exportCSV' // Assuming this utility exists
+import 'prismjs/themes/prism.css'
+import Prism from 'prismjs'
 
-const toast = useToast();
+const toast = useToast()
 
 // State
-const today = new Date();
-const startDate = ref(new Date(today.setDate(today.getDate() - 30))); // Last 30 days start
-const endDate = ref(new Date()); // Today
-const tableData = ref([]);
-const errorMessage = ref("");
-const loading = ref(false);
-const selectedTable = ref(null);
-const customQuery = ref("");
-const showCustomQuery = ref(false);
-const showFieldsDialog = ref(false);
-const tableFields = ref([]);
+const today = new Date()
+const startDate = ref(new Date(today.setDate(today.getDate() - 30))) // Last 30 days start
+const endDate = ref(new Date()) // Today
+const tableData = ref([])
+const errorMessage = ref('')
+const loading = ref(false)
+const selectedTable = ref(null)
+const customQuery = ref('')
+const showCustomQuery = ref(false)
+const showFieldsDialog = ref(false)
+const tableFields = ref([])
 
 // Hardcoded table options
 const availableTables = ref([
-  { name: "Premium Report", value: "PRD.PremiumReport" },
-  { name: "Policy Details", value: "PRD.policies" },
-  { name: "Customer Info", value: "PRD.contacts" },
-]);
+  { name: 'Premium Report', value: 'PRD.PremiumReport' },
+  { name: 'Policy Details', value: 'PRD.policies' },
+  { name: 'Customer Info', value: 'PRD.contacts' },
+])
 
 // Computed property for dynamic date field name
 const dateFieldName = computed(() => {
-  if (selectedTable.value === "PRD.policies" || selectedTable.value === "PRD.contacts") {
-    return "DateLastModified";
+  if (selectedTable.value === 'PRD.policies' || selectedTable.value === 'PRD.contacts') {
+    return 'DateLastModified'
   }
-  return "addedDate";
-});
+  return 'addedDate'
+})
 
 // Computed property for highlighted SQL query using Prism
 const highlightedSQL = computed(() => {
-  return Prism.highlight(customQuery.value || "", Prism.languages.sql, "sql");
-});
+  return Prism.highlight(customQuery.value || '', Prism.languages.sql, 'sql')
+})
 
 // Toggle custom query input and reset customQuery if needed
 const toggleCustomQuery = () => {
   if (showCustomQuery.value) {
-    customQuery.value = "";
+    customQuery.value = ''
   }
-  showCustomQuery.value = !showCustomQuery.value;
-};
+  showCustomQuery.value = !showCustomQuery.value
+}
 
 // Format date to YYYY-MM-DD
 const formatDate = (date) => {
-  return date.toISOString().split("T")[0];
-};
+  return date.toISOString().split('T')[0]
+}
 
 // Fetch table fields dynamically
 const fetchTableFields = async () => {
   if (!selectedTable.value) {
-    tableFields.value = [];
-    return;
+    tableFields.value = []
+    return
   }
-  loading.value = true;
+  loading.value = true
   try {
-    const [schema, table] = selectedTable.value.split(".");
-    const query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}'`;
-    const response = await axios.post("https://dev.rocox.co/api/query_db", { query });
-    tableFields.value = response.data.map((row) => row.COLUMN_NAME);
+    const [schema, table] = selectedTable.value.split('.')
+    const query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}'`
+    const response = await axios.post('https://dev.rocox.co/api/query_db', { query })
+    tableFields.value = response.data.map((row) => row.COLUMN_NAME)
   } catch (error) {
-    toast.add({ severity: "error", summary: "Error", detail: "Failed to fetch table fields.", life: 5000 });
-    tableFields.value = [];
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to fetch table fields.',
+      life: 5000,
+    })
+    tableFields.value = []
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
 // Get unique values for a column key for filtering
 const getUniqueValues = (key) => {
-  if (!tableData.value.length) return [];
+  if (!tableData.value.length) return []
   const uniqueValues = [...new Set(tableData.value.map((row) => row[key]))]
     .filter((value) => value !== null && value !== undefined)
-    .map((value) => ({ label: String(value), value: String(value) }));
-  return [{ label: "All", value: null }, ...uniqueValues];
-};
+    .map((value) => ({ label: String(value), value: String(value) }))
+  return [{ label: 'All', value: null }, ...uniqueValues]
+}
 
 // Watch for table selection changes to fetch fields
 watch(selectedTable, () => {
-  fetchTableFields();
-});
+  fetchTableFields()
+})
 
 // Default query generator
 const generateDefaultQuery = () => {
-  if (!selectedTable.value) return "";
+  if (!selectedTable.value) return ''
   return `
     SELECT *
     FROM ${selectedTable.value}
     WHERE ${dateFieldName.value} BETWEEN '${formatDate(startDate.value)}' AND '${formatDate(endDate.value)}'
-  `.trim();
-};
+  `.trim()
+}
 
 // Fetch data from the API with validation
 const fetchData = async () => {
   if (!selectedTable.value && !customQuery.value.trim()) {
-    toast.add({ severity: "warn", summary: "Warning", detail: "Please select a table or enter a custom query.", life: 3000 });
-    return;
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Please select a table or enter a custom query.',
+      life: 3000,
+    })
+    return
   }
 
   if (!showCustomQuery.value && (!startDate.value || !endDate.value)) {
-    toast.add({ severity: "warn", summary: "Warning", detail: "Please select both start and end dates for default query.", life: 3000 });
-    return;
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Please select both start and end dates for default query.',
+      life: 3000,
+    })
+    return
   }
 
-  loading.value = true;
-  errorMessage.value = "";
-  const query = customQuery.value.trim() || generateDefaultQuery();
+  loading.value = true
+  errorMessage.value = ''
+  const query = customQuery.value.trim() || generateDefaultQuery()
 
-  if (!query.toUpperCase().startsWith("SELECT")) {
-    toast.add({ severity: "error", summary: "Error", detail: "Only SELECT queries are allowed.", life: 5000 });
-    loading.value = false;
-    return;
+  if (!query.toUpperCase().startsWith('SELECT')) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Only SELECT queries are allowed.',
+      life: 5000,
+    })
+    loading.value = false
+    return
   }
 
   try {
-    console.log("Executing query:", query);
-    const response = await axios.post("https://dev.rocox.co/api/query_db", { query });
-    tableData.value = response.data;
-    toast.add({ severity: "success", summary: "Success", detail: "Data fetched successfully!", life: 3000 });
+    console.log('Executing query:', query)
+    const response = await axios.post('https://dev.rocox.co/api/query_db', { query })
+    tableData.value = response.data
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Data fetched successfully!',
+      life: 3000,
+    })
   } catch (error) {
-    errorMessage.value = error?.response?.data?.message || "Failed to fetch data.";
-    toast.add({ severity: "error", summary: "Error", detail: errorMessage.value, life: 5000 });
+    errorMessage.value = error?.response?.data?.message || 'Failed to fetch data.'
+    toast.add({ severity: 'error', summary: 'Error', detail: errorMessage.value, life: 5000 })
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
 // Show table fields
 const showFields = () => {
   if (!selectedTable.value) {
-    toast.add({ severity: "warn", summary: "Warning", detail: "Please select a table first.", life: 3000 });
-    return;
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'Please select a table first.',
+      life: 3000,
+    })
+    return
   }
-  showFieldsDialog.value = true;
-};
+  showFieldsDialog.value = true
+}
 
 // Download CSV
 const downloadCSV = () => {
   if (tableData.value.length > 0) {
-    exportCSV(tableData.value, `query_results_${new Date().toISOString().split("T")[0]}.csv`);
-    toast.add({ severity: "info", summary: "Download", detail: "CSV file downloaded.", life: 3000 });
+    exportCSV(tableData.value, `query_results_${new Date().toISOString().split('T')[0]}.csv`)
+    toast.add({ severity: 'info', summary: 'Download', detail: 'CSV file downloaded.', life: 3000 })
   } else {
-    toast.add({ severity: "warn", summary: "No Data", detail: "No data available to download.", life: 3000 });
+    toast.add({
+      severity: 'warn',
+      summary: 'No Data',
+      detail: 'No data available to download.',
+      life: 3000,
+    })
   }
-};
+}
 
 // Reset form
 const resetForm = () => {
-  startDate.value = new Date(today.setDate(today.getDate() - 30));
-  endDate.value = new Date();
-  selectedTable.value = null;
-  customQuery.value = "";
-  showCustomQuery.value = false;
-  tableData.value = [];
-  errorMessage.value = "";
-  tableFields.value = [];
-  toast.add({ severity: "info", summary: "Reset", detail: "Form reset to defaults.", life: 3000 });
-};
+  startDate.value = new Date(today.setDate(today.getDate() - 30))
+  endDate.value = new Date()
+  selectedTable.value = null
+  customQuery.value = ''
+  showCustomQuery.value = false
+  tableData.value = []
+  errorMessage.value = ''
+  tableFields.value = []
+  toast.add({ severity: 'info', summary: 'Reset', detail: 'Form reset to defaults.', life: 3000 })
+}
 
 // Highlight SQL on change
 const highlightSQL = () => {
-  setTimeout(() => Prism.highlightAll(), 0);
-};
+  setTimeout(() => Prism.highlightAll(), 0)
+}
 </script>
 
 <style scoped>
@@ -463,7 +506,7 @@ h1 {
 
 .sql-input {
   width: 100%;
-  font-family: "Source Code Pro", monospace;
+  font-family: 'Source Code Pro', monospace;
   font-size: 14px;
   resize: vertical;
   border-radius: 5px;
@@ -475,7 +518,7 @@ h1 {
   border-radius: 5px;
   overflow-x: auto;
   margin-top: 10px;
-  font-family: "Source Code Pro", monospace;
+  font-family: 'Source Code Pro', monospace;
   font-size: 14px;
 }
 
