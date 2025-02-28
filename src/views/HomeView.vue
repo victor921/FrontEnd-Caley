@@ -333,7 +333,7 @@ const fetchData = async () => {
 
   try {
     console.log('Executing query:', query)
-    const response = await axios.post('https://dev.rocox.co/api/query_db', { query })
+    const response = await axios.post(`https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`, { query })
     tableData.value = response.data
     toast.add({
       severity: 'success',

@@ -243,7 +243,7 @@ export default {
 
       this.filesLoading = true;
       try {
-        const response = await fetch("https://dev.rocox.co/api/fetch_files?folder=logs"
+        const response = await fetch(`https://dev.rocox.co/api/fetch_files?folder=logs&code=${process.env.VUE_APP_FUNCTION_KEY}`
       );
         if (!response.ok) {
           throw new Error(`Could not load files. HTTP ${response.status}`);
@@ -294,7 +294,7 @@ export default {
     async fetchFileStatus(file) {
       try {
         const resp = await fetch(
-          `https://dev.rocox.co/api/get_file_content?path=${file.fullPath}`
+          `https://dev.rocox.co/api/get_file_content?path=${file.fullPath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
         );
         if (!resp.ok) {
           throw new Error(`Status fetch failed with HTTP ${resp.status}`);
@@ -311,7 +311,7 @@ export default {
 
       try {
         const resp = await fetch(
-          `https://dev.rocox.co/api/get_file_content?path=${filePath}`
+          `https://dev.rocox.co/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
         );
         if (!resp.ok) {
           throw new Error(`Failed to open file. HTTP ${resp.status}`);
@@ -364,7 +364,7 @@ export default {
             }
 
             const resp = await fetch(
-              `https://dev.rocox.co/api/get_file_content?path=${filePath}`
+              `https://dev.rocox.co/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
             );
             if (!resp.ok) {
               throw new Error(`Poll error. HTTP ${resp.status}`);

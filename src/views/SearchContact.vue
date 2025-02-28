@@ -65,7 +65,7 @@ export default {
       this.searchPerformed = false;
 
       try {
-        const functionUrl = 'https://dev.rocox.co/api/search'; // Replace with your actual URL
+        const functionUrl = `https://dev.rocox.co/api/search?code=${process.env.VUE_APP_FUNCTION_KEY}`; // Replace with your actual URL
         const response = await axios.get(functionUrl, {
           params: { searchContent: this.searchInput },
         });

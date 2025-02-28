@@ -266,7 +266,7 @@ export default {
       this.loadingFiles = true;
       this.errorFiles = null;
       try {
-        const response = await axios.get("https://dev.rocox.co/api/fetch_files");
+        const response = await axios.get(`https://dev.rocox.co/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
         if (!Array.isArray(response.data)) {
           throw new Error("Expected an array of file paths from server");
         }
@@ -297,7 +297,7 @@ export default {
     },
     async deleteFile(fileObj) {
       try {
-        await axios.post("https://dev.rocox.co/api/delete_files", {
+        await axios.post(`https://dev.rocox.co/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           filePath: fileObj.path,
         });
         this.fetchFiles();
@@ -342,7 +342,7 @@ export default {
         }
 
         const resp = await axios.post(
-          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}`,
+          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
           payload,
           { headers: { "Content-Type": "application/json" } }
         );

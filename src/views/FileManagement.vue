@@ -262,7 +262,7 @@ export default {
       }
       this.filesLoading = true;
       try {
-        const resp = await axios.get(`https://dev.rocox.co/api/fetch_files?folder=${this.rootFolder.split('/')[1]}`);
+        const resp = await axios.get(`https://dev.rocox.co/api/fetch_files?folder=${this.rootFolder.split('/')[1]}&code=${process.env.VUE_APP_FUNCTION_KEY}`);
         // console.log('API Response:', resp.data);
         const paths = this.processPaths(resp.data, this.rootFolder);
         this.files = paths;
@@ -328,7 +328,7 @@ export default {
         // const relativePath = file.path.replace(/^\/output_files\//, '');
         // Call the new download endpoint passing the relative path as query parameter filePath
         // console.log(relativePath)
-        const response = await axios.get(`https://dev.rocox.co/api/download_file?filePath=${encodeURIComponent(file.path)}`, {
+        const response = await axios.get(`https://dev.rocox.co/api/download_file?filePath=${encodeURIComponent(file.path)}&code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           responseType: 'blob',
           headers: {
             // Optionally include auth header if your endpoint requires it
@@ -428,7 +428,7 @@ export default {
     },
     async fetchCompanyMetadata() {
       try {
-        const resp = await axios.get('https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json');
+        const resp = await axios.get(`https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json&code=${process.env.VUE_APP_FUNCTION_KEY}`);
         this.companyMetadata = resp.data;
       } catch (err) {
         console.error('Failed to fetch metadata:', err);
@@ -622,7 +622,7 @@ export default {
               AND YEAR(AddedDate) = ${y}
               AND carrier = '${fc.company}'
           `;
-          const resp = await axios.post('https://dev.rocox.co/api/query_db', { query: queryStr });
+          const resp = await axios.post(`https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`, { query: queryStr });
           const [row] = resp.data || [];
           const moSum = parseFloat(parseFloat(row?.sum_gross || 0).toFixed(2));
           if (moSum === sum2d) {
@@ -797,7 +797,7 @@ export default {
         formData.append('folder', fc.folder);
         formData.append('company', fc.company);
         try {
-          await axios.post('https://dev.rocox.co/api/upload_files', formData, {
+          await axios.post(`https://dev.rocox.co/api/upload_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
             onUploadProgress: (pe) => {
               const pc = Math.round((pe.loaded * 100) / pe.total);

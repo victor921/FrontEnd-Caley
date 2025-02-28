@@ -274,7 +274,7 @@ export default {
       if (this.companyData.length) return;
       this.loading = true;
       try {
-        const response = await axios.get("https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json");
+        const response = await axios.get(`https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/company_metadata.json&code=${process.env.VUE_APP_FUNCTION_KEY}`);
         this.companyData = response.data || [];
       } catch (error) {
         this.errorMessage = "Failed to load company data.";
@@ -284,7 +284,7 @@ export default {
     },
     async fetchLastEditedLog() {
       try {
-        const response = await axios.post("https://dev.rocox.co/api/query_db", {
+        const response = await axios.post(`https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           query: "SELECT TOP 1 user_email, change_timestamp, action, old_value, new_value FROM dbo.configuration_logs ORDER BY change_timestamp DESC"
         });
         if (response.data?.length) this.lastEditedLog = response.data[0];
@@ -338,7 +338,7 @@ export default {
       else if (this.action === "edit" && this.selectedCompanyIndex !== "") this.companyData[this.selectedCompanyIndex] = { ...this.currentCompany };
 
       try {
-        await axios.post("https://dev.rocox.co/api/create_file", {
+        await axios.post(`https://dev.rocox.co/api/create_file?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           directory: "Static Files/",
           file_name: "company_metadata.json",
           content: this.companyData,
@@ -363,7 +363,7 @@ export default {
         old_value: this.action === "edit" ? JSON.stringify(this.originalCompany) : "",
         new_value: JSON.stringify(this.currentCompany)
       };
-      await axios.post("https://dev.rocox.co/api/update_sql", { table: "configuration_logs", data: logData });
+      await axios.post(`https://dev.rocox.co/api/update_sql?code=${process.env.VUE_APP_FUNCTION_KEY}`, { table: "configuration_logs", data: logData });
     },
     formatDate(dateString) {
       return new Date(dateString).toLocaleString();
