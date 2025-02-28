@@ -7,7 +7,13 @@ import '@fortawesome/fontawesome-free/css/all.css';
 import PrimeVue from "primevue/config";
 import Toast from 'primevue/toast';
 import ToastService from 'primevue/toastservice'; // Add this import
+import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import Aura from '@primevue/themes/aura';
+import MultiSelect from 'primevue/multiselect';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import ColumnGroup from 'primevue/columngroup';   // optional
+import Row from 'primevue/row';                   // optional
 import Lara from '@primevue/themes/lara'
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
