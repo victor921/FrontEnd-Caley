@@ -374,16 +374,14 @@ const availableTables = ref([
 const dateFieldName = computed(() =>
   selectedTable.value === 'PRD.policies' || selectedTable.value === 'PRD.contacts'
     ? 'DateLastModified'
-    : 'addedDate'
+    : 'addedDate',
 )
 
 const highlightedSQL = computed(() =>
-  Prism.highlight(customQuery.value || '', Prism.languages.sql, 'sql')
+  Prism.highlight(customQuery.value || '', Prism.languages.sql, 'sql'),
 )
 
-const availableColumns = computed(() =>
-  allColumns.value.map((col) => ({ label: col, value: col }))
-)
+const availableColumns = computed(() => allColumns.value.map((col) => ({ label: col, value: col })))
 
 // Function to auto-scroll only if user is near bottom
 const autoScroll = () => {
@@ -417,7 +415,7 @@ watch(
       chatHistory.messages = []
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 // Watch chatHistory messages length to auto-scroll (if user hasn't scrolled up)
@@ -425,7 +423,7 @@ watch(
   () => chatHistory.messages.length,
   () => {
     autoScroll()
-  }
+  },
 )
 
 // Methods
@@ -447,7 +445,7 @@ const fetchTableFields = async () => {
     const query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}'`
     const response = await axios.post(
       `https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`,
-      { query }
+      { query },
     )
     tableFields.value = response.data.map((row) => row.COLUMN_NAME)
   } catch (error) {
@@ -465,9 +463,7 @@ const fetchTableFields = async () => {
 
 const getUniqueValues = (key) => {
   if (!tableData.value.length) return []
-  const uniqueValues = [
-    ...new Set(tableData.value.map((row) => row[key])),
-  ]
+  const uniqueValues = [...new Set(tableData.value.map((row) => row[key]))]
     .filter((value) => value !== null && value !== undefined)
     .map((value) => ({ label: String(value), value: String(value) }))
   return [{ label: 'All', value: null }, ...uniqueValues]
@@ -529,7 +525,7 @@ const fetchData = async () => {
   try {
     const response = await axios.post(
       `https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`,
-      { query }
+      { query },
     )
     tableData.value = response.data || []
     toast.add({
@@ -567,7 +563,7 @@ const showFields = () => {
 const downloadCSV = () => {
   if (filteredData.value.length > 0) {
     const exportData = filteredData.value.map((row) =>
-      Object.fromEntries(visibleColumns.value.map((col) => [col, row[col]]))
+      Object.fromEntries(visibleColumns.value.map((col) => [col, row[col]])),
     )
     exportCSV(exportData, `query_results_${new Date().toISOString().split('T')[0]}.csv`)
     toast.add({
@@ -687,9 +683,7 @@ const processAIQuery = async () => {
       return
     }
 
-    const displayData = data.map((row) =>
-      Object.fromEntries(columns.map((col) => [col, row[col]]))
-    )
+    const displayData = data.map((row) => Object.fromEntries(columns.map((col) => [col, row[col]])))
 
     const tableString = JSON.stringify(displayData)
     const approxTokens = tableString.length / 4
@@ -917,7 +911,9 @@ h1 {
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   z-index: 1000;
 }
 
