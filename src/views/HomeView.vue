@@ -255,7 +255,7 @@ const fetchTableFields = async () => {
   try {
     const [schema, table] = selectedTable.value.split('.')
     const query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${schema}' AND TABLE_NAME = '${table}'`
-    const response = await axios.post('https://dev.rocox.co/api/query_db', { query })
+    const response = await axios.post(`https://dev.rocox.co/api/query_db?code=${process.env.VUE_APP_FUNCTION_KEY}`, { query })
     tableFields.value = response.data.map((row) => row.COLUMN_NAME)
   } catch (error) {
     toast.add({
