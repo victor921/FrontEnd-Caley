@@ -5,6 +5,7 @@ export const useUserStore = defineStore('userStore', {
   state: () => ({
     user: null, // { token, email, name, tokenExpiration }
     isSigningOut: false,
+    adminList: [], // List of admin emails loaded from the server
   }),
 
   getters: {
@@ -15,9 +16,33 @@ export const useUserStore = defineStore('userStore', {
       return state.user.tokenExpiration && new Date(state.user.tokenExpiration) > now;
     },
     token: (state) => state.user ? state.user.token : null,
+    isAdmin: (state) => {
+      if (!state.user || !state.user.email) return false;
+      // Compare emails case-insensitively
+      return state.adminList.map(email => email.toLowerCase()).includes(state.user.email.toLowerCase());
+    },
   },
 
   actions: {
+    async loadAdminList() {
+      try {
+        const code = process.env.VUE_APP_FUNCTION_KEY;
+        const endpoint =
+          `https://dev.rocox.co/api/get_file_content?path=/caley-operations-dev/Static Files/admins.json&code=${code}`;
+        const response = await fetch(endpoint);
+        const data = await response.json();
+        // Expecting the file to have a structure like: { "admin": [ ...emails ] }
+        if (data && Array.isArray(data.admin)) {
+          this.adminList = data.admin;
+        } else {
+          this.adminList = [];
+        }
+      } catch (err) {
+        console.error('Error loading admin list:', err);
+        this.adminList = [];
+      }
+    },
+
     loadUserFromStorage() {
       try {
         const raw = localStorage.getItem('userInfo');
@@ -28,6 +53,9 @@ export const useUserStore = defineStore('userStore', {
           const now = new Date();
           if (userData.tokenExpiration && new Date(userData.tokenExpiration) <= now) {
             this.signOut(); // Token expired, clear it
+          } else {
+            // Load the admin list after successfully loading the user.
+            this.loadAdminList();
           }
         }
       } catch (err) {
@@ -40,6 +68,8 @@ export const useUserStore = defineStore('userStore', {
     signIn(userData) {
       this.user = userData;
       localStorage.setItem('userInfo', JSON.stringify(userData));
+      // Load the admin list after signing in
+      this.loadAdminList();
     },
 
     signOut() {
@@ -60,7 +90,7 @@ export const useUserStore = defineStore('userStore', {
       });
     },
 
-    // Optional: Method to manually check and enforce sign-out due to inactivity
+    // Optional: Method to manually enforce sign-out due to inactivity
     forceSignOutDueToInactivity() {
       if (this.isAuthenticated) {
         this.signOut().then(() => {

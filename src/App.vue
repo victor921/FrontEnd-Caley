@@ -9,6 +9,7 @@ const userStore = useUserStore();
 // Reactive user state
 const user = computed(() => userStore.user);
 const isAuthenticated = computed(() => !!user.value);
+const isAdmin = computed(() => userStore.isAdmin); // Add isAdmin getter
 const isSigningOut = computed(() => userStore.isSigningOut);
 
 // Inactivity timer state
@@ -99,27 +100,30 @@ onUnmounted(() => {
 
       <!-- MENU ITEMS -->
       <nav class="menu">
-        <div class="menu-item" @click="navigateTo('/home')">
+        <!-- Admin-only tabs -->
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home')">
           <img src="@/assets/icons/home.svg" alt="Dashboard" />
           <span>Home</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/runFiles')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles')">
           <img src="@/assets/icons/run.svg" alt="Run Files" />
           <span>Run Files</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/fileManagement')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/fileManagement')">
           <img src="@/assets/icons/upload.svg" alt="File Management" />
           <span>File Management</span>
         </div>
+        <!-- Search Contact available to all authenticated users -->
         <div class="menu-item" @click="navigateTo('/searchContact')">
           <img src="@/assets/icons/search.svg" alt="Search Contact" />
           <span>Search Contact</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/runHistory')">
+        <!-- Admin-only tabs continued -->
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory')">
           <img src="@/assets/icons/history.svg" alt="Run History" />
           <span>Run History</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/settings')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/settings')">
           <img src="@/assets/icons/settings.svg" alt="Settings" />
           <span>Settings</span>
         </div>

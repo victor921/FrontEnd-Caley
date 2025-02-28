@@ -31,7 +31,7 @@
         </div>
       </transition-group>
       <p v-else-if="searchPerformed && !results.length" class="no-results">
-        No results found for "{{ searchInput }}".
+        No customers or prospects found for "{{ searchInput }}".
       </p>
     </div>
   </div>
@@ -65,13 +65,17 @@ export default {
       this.searchPerformed = false;
 
       try {
-        const functionUrl = `https://dev.rocox.co/api/search?code=${process.env.VUE_APP_FUNCTION_KEY}`; // Replace with your actual URL
+        const functionUrl = `https://dev.rocox.co/api/search?code=${process.env.VUE_APP_FUNCTION_KEY}`;
         const response = await axios.get(functionUrl, {
           params: { searchContent: this.searchInput },
         });
 
         const data = response.data;
-        this.results = data.Contacts || [];
+        // Filter results to only include Customers and Prospects
+        this.results = (data.Contacts || []).filter(item => {
+          const type = item.ContactTypeName?.toLowerCase();
+          return type === 'customer' || type === 'prospect';
+        });
         this.searchPerformed = true;
       } catch (err) {
         this.error = err.response?.data || err.message || 'An error occurred';
@@ -84,7 +88,7 @@ export default {
       this.searchContacts();
     }, 500),
     getTypeClass(type) {
-      return type.toLowerCase().replace(/\s+/g, '-');
+      return type?.toLowerCase().replace(/\s+/g, '-') || 'unknown';
     },
     formatAddress(item) {
       const parts = [
@@ -101,7 +105,7 @@ export default {
 
 <style scoped>
 .search-contact {
-  max-width: 1200px; /* Increased width to accommodate tiles */
+  max-width: 1200px;
   margin: 40px auto;
   padding: 20px;
   font-family: 'Segoe UI', Arial, sans-serif;
@@ -153,15 +157,15 @@ h2 {
 
 .results-container {
   margin-top: 30px;
-  max-height: 70vh; /* Slightly taller to fit more tiles */
+  max-height: 70vh;
   overflow-y: auto;
   padding-right: 10px;
 }
 
 .results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Tiles adjust to available space */
-  gap: 20px; /* Space between tiles */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .result-tile {
@@ -201,21 +205,17 @@ h2 {
   background-color: #28a745;
 }
 
-.type-badge:not(.customer):not(.prospect) {
-  background-color: #6c757d;
-}
-
 .result-body p {
   margin: 5px 0;
   color: #555;
-  font-size: 14px; /* Slightly smaller text for compactness */
+  font-size: 14px;
 }
 
 .no-results {
   text-align: center;
   color: #777;
   margin-top: 20px;
-  grid-column: 1 / -1; /* Span full width in grid */
+  grid-column: 1 / -1;
 }
 
 .fade-enter-active,
