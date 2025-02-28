@@ -327,7 +327,7 @@ import { marked } from 'marked'
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: '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',
+  apiKey: process.env['OPENAI_API_KEY'],
   dangerouslyAllowBrowser: true,
 })
 
