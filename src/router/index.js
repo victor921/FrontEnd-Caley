@@ -2,108 +2,95 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 
+const routes = [
+  {
+    path: '/',
+    redirect: '/login',
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/LoginView.vue'),
+  },
+  {
+    path: '/home',
+    name: 'home',
+    component: () => import('../views/HomeView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/dev',
+    name: 'dev',
+    component: () => import('../views/DevView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/fileManagement',
+    name: 'fileManagement',
+    component: () => import('../views/FileManagement.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/runFiles',
+    name: 'runFiles',
+    component: () => import('../views/RunPipelinesView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/runHistory',
+    name: 'runHistory',
+    component: () => import('../views/RunHistory.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: () => import('../views/SettingsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/searchContact',
+    name: 'searchContact',
+    component: () => import('../views/SearchContact.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/login',
+  },
+];
+
 const router = createRouter({
   history: createWebHistory(),
-  routes: [
-    {
-      path: '/',
-      redirect: '/login',
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('../views/LoginView.vue'),
-    },
-    {
-      path: '/home',
-      name: 'home',
-      component: () => import('../views/HomeView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/dev',
-      name: 'dev',
-      component: () => import('../views/DevView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/fileManagement',
-      name: 'fileManagement',
-      component: () => import('../views/FileManagement.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/runFiles',
-      name: 'runFiles',
-      component: () => import('../views/RunPipelinesView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/runHistory',
-      name: 'runHistory',
-      component: () => import('../views/RunHistory.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('../views/SettingsView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }, // Admin-only
-    },
-    {
-      path: '/searchContact',
-      name: 'searchContact',
-      component: () => import('../views/SearchContact.vue'),
-      meta: { requiresAuth: true }, // Accessible to all authenticated users
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      redirect: '/login',
-    },
-  ],
+  routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
-  userStore.loadUserFromStorage(); // Ensure user state is loaded
+  // Load the user state only if it hasn't been loaded yet.
+  if (!userStore.user) {
+    await userStore.loadUserFromStorage();
+  }
 
   const isAuthenticated = userStore.isAuthenticated;
   const isAdmin = userStore.isAdmin;
 
-  // Allow unauthenticated users to access /login only
-  if (!isAuthenticated) {
-    if (to.path === '/login') {
-      next();
-    } else {
-      next('/login');
-    }
-    return;
-  }
-
-  // Redirect authenticated users away from /login to /searchContact (non-admin) or /home (admin)
-  if (to.path === '/login') {
-    next(isAdmin ? '/home' : '/searchContact');
-    return;
-  }
-
-  // Allow all authenticated users to access /searchContact
-  if (to.path === '/searchContact') {
-    next();
-    return;
-  }
-
-  // Restrict non-admin users to /searchContact only
-  if (!isAdmin) {
-    next('/searchContact');
-    return;
-  }
-
-  // For admins, enforce requiresAuth and allow access
+  // Redirect to /login if the route requires authentication and the user isn't authenticated.
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login');
-  } else {
-    next();
+    return next('/login');
   }
+
+  // If an authenticated user tries to access /login, redirect them appropriately.
+  if (to.path === '/login' && isAuthenticated) {
+    return next(isAdmin ? '/home' : '/searchContact');
+  }
+
+  // If the route requires admin privileges and the user is not an admin, redirect to /searchContact.
+  if (to.meta.requiresAdmin && !isAdmin) {
+    return next('/searchContact');
+  }
+
+  next();
 });
 
 export default router;

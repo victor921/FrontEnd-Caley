@@ -65,11 +65,11 @@ export const useUserStore = defineStore('userStore', {
       }
     },
 
-    signIn(userData) {
+    async signIn(userData) {
       this.user = userData;
       localStorage.setItem('userInfo', JSON.stringify(userData));
       // Load the admin list after signing in
-      this.loadAdminList();
+      await this.loadAdminList();
     },
 
     signOut() {
