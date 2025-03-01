@@ -74,11 +74,11 @@ onMounted(async () => {
   <div class="login-container">
     <div class="login-card">
       <img src="@/assets/logo2.png" alt="Company Logo" class="company-logo" />
-      <h1>Agent Login</h1>
-      <p class="login-subtitle">Please sign in with Google</p>
-      <div class="google-signin-wrapper">
+      <h1>CAS - Agent Login</h1>
+      <p class="login-subtitle">Coming soon!</p>
+      <!-- <div class="google-signin-wrapper">
         <div id="g_id_signin"></div>
-      </div>
+      </div> -->
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     </div>
   </div>
