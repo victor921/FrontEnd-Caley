@@ -249,7 +249,7 @@ export default {
       this.loadingFiles = true;
       this.errorFiles = null;
       try {
-        const response = await axios.get(`https://dev.rocox.co/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
+        const response = await axios.get(`/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
         if (!Array.isArray(response.data)) {
           throw new Error("Expected array of file paths from the server");
         }
@@ -311,7 +311,7 @@ export default {
         }
 
         const resp = await axios.post(
-          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          `/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
           payload,
           { headers: { "Content-Type": "application/json" } }
         );
@@ -326,7 +326,7 @@ export default {
     // Demo for deleting a file (not required to change for pipeline logic)
     async deleteFile(fileObj) {
       try {
-        await axios.post(`https://dev.rocox.co/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
+        await axios.post(`/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           filePath: fileObj.path,
         });
         // Refresh after delete

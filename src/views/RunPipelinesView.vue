@@ -1,172 +1,193 @@
 <template>
-  <div class="page-container">
-    <!-- Header Section -->
-    <div class="header">
+  <div class="pipeline-runner">
+    <!-- Header -->
+    <header class="header">
       <h1>Data Pipeline Runner</h1>
-      <p class="subtitle">
-        Easily manage and run data pipelines by selecting files or performing updates.
-      </p>
-    </div>
+      <p class="subtitle">Run and manage your data pipelines with ease.</p>
+    </header>
 
-    <div class="content-grid">
-      <!-- FILE MANAGEMENT CARD -->
-      <div class="card file-management">
-        <div class="card-header">
-          <h2>File Management</h2>
-          <p class="card-description">
-            View and refresh your files below. Select multiple files to run them in the pipeline.
-          </p>
-        </div>
-        <div class="card-body">
-          <div class="controls">
+    <!-- Main Content -->
+    <main class="content">
+      <!-- File Management Section -->
+      <section class="file-section">
+        <div class="section-header">
+          <h2>Files</h2>
+          <div class="file-actions">
             <button
+              class="btn refresh-btn"
               @click="fetchFiles"
               :disabled="loadingFiles"
-              class="btn action-btn refresh"
+              :aria-label="loadingFiles ? 'Refreshing files...' : 'Refresh file list'"
             >
-              {{ loadingFiles ? "Refreshing..." : "Refresh Files" }}
+              <i class="pi pi-refresh" :class="{ 'spinning': loadingFiles }"></i>
+              <span>{{ loadingFiles ? "Refreshing" : "Refresh" }}</span>
             </button>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
+            <label class="select-all">
+              <input
+                type="checkbox"
+                v-model="selectAll"
+                @change="toggleSelectAll"
+                :disabled="loadingFiles || !files.length"
+              />
               <span>Select All</span>
             </label>
           </div>
-
-          <div class="file-list-container">
-            <p v-if="loadingFiles" class="info-text">Refreshing file list...</p>
-            <p v-if="errorFiles" class="error-text">{{ errorFiles }}</p>
-
-            <ul v-if="paginatedFiles.length > 0" class="file-list">
-              <li
-                v-for="(fileObj, index) in paginatedFiles"
-                :key="index"
-                class="file-item"
-              >
-                <div class="file-info">
-                  <label class="checkbox-label" :title="fileObj.fileName">
-                    <input
-                      type="checkbox"
-                      v-model="selectedFiles"
-                      :value="fileObj"
-                    />
-                    <span class="file-name truncate">{{ fileObj.fileName }}</span>
-                  </label>
-                  <p class="file-path truncate" :title="fileObj.folder + fileObj.company">
-                    {{ fileObj.folder }}{{ fileObj.company }}
-                  </p>
-                </div>
-                <div class="file-actions">
-                  <button @click="deleteFile(fileObj)" class="btn action-btn danger">
-                    Delete
-                  </button>
-                </div>
-              </li>
-            </ul>
-
-            <p
-              v-else-if="files.length > 0 && !loadingFiles"
-              class="info-text"
-            >
-              No files on this page.
-            </p>
-            <p
-              v-if="files.length === 0 && !loadingFiles && !errorFiles"
-              class="info-text"
-            >
-              No files available.
-            </p>
-          </div>
-
-          <!-- Pagination Controls -->
-          <div v-if="totalPages > 1" class="pagination-controls">
-            <button
-              class="btn page-btn"
-              :disabled="currentPage === 1"
-              @click="currentPage--"
-            >
-              Prev
-            </button>
-            <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
-            <button
-              class="btn page-btn"
-              :disabled="currentPage === totalPages"
-              @click="currentPage++"
-            >
-              Next
-            </button>
-          </div>
         </div>
-      </div>
 
-      <!-- TRIGGER PROCESS CARD -->
-      <div class="card process-runner">
-        <div class="card-header">
-          <h2>Trigger Process</h2>
-          <p class="card-description">
-            Choose which pipeline to run and supply any required dates or files.
+        <!-- File List -->
+        <div class="file-list" v-if="!errorFiles && !loadingFiles">
+          <div
+            v-for="(fileObj, index) in paginatedFiles"
+            :key="index"
+            class="file-card"
+          >
+            <div class="file-details">
+              <label class="file-checkbox">
+                <input
+                  type="checkbox"
+                  v-model="selectedFiles"
+                  :value="fileObj"
+                  :disabled="loadingFiles"
+                />
+                <span class="file-name">{{ fileObj.fileName }}</span>
+              </label>
+              <p class="file-path">{{ fileObj.folder }}{{ fileObj.company }}</p>
+            </div>
+            <button
+              class="btn delete-btn"
+              @click="deleteFile(fileObj)"
+              :disabled="loadingFiles"
+              aria-label="Delete file"
+            >
+              <i class="pi pi-trash"></i>
+            </button>
+          </div>
+          <p v-if="!paginatedFiles.length && files.length > 0" class="no-files">
+            No files on this page.
           </p>
+          <p v-else-if="!files.length" class="no-files">No files available.</p>
         </div>
-        <div class="card-body">
-          <label class="dropdown-label">Select a Pipeline:</label>
-          <select v-model="selectedPipeline" class="dropdown pipeline-select">
-            <option value="runFiles">Run Files</option>
-            <option value="updateDatabase">Update Database</option>
-            <option value="binderVerification">Binder Verification</option>
-          </select>
 
-          <!-- If user selects "Run Files" -->
-          <div v-if="selectedPipeline === 'runFiles'" class="pipeline-options">
-            <label class="date-label">
-              Select Date/Time:
-              <!-- Users picks e.g. "2025-01-29T10:21" -->
+        <!-- Loading/Error States -->
+        <div class="status" v-if="loadingFiles || errorFiles">
+          <p v-if="loadingFiles" class="loading">Loading files...</p>
+          <p v-if="errorFiles" class="error">{{ errorFiles }}</p>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="pagination">
+          <button
+            class="btn pagination-btn"
+            :disabled="currentPage === 1 || loadingFiles"
+            @click="currentPage--"
+          >
+            <i class="pi pi-angle-left"></i>
+          </button>
+          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+          <button
+            class="btn pagination-btn"
+            :disabled="currentPage === totalPages || loadingFiles"
+            @click="currentPage++"
+          >
+            <i class="pi pi-angle-right"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- Pipeline Runner Section -->
+      <section class="pipeline-section">
+        <div class="section-header">
+          <h2>Run Pipeline</h2>
+        </div>
+
+        <div class="pipeline-form">
+          <!-- Pipeline Selection -->
+          <div class="form-group">
+            <label for="pipeline-select">Pipeline</label>
+            <select
+              id="pipeline-select"
+              v-model="selectedPipeline"
+              class="select"
+              :disabled="loadingPipeline"
+            >
+              <option value="runFiles">Run Files</option>
+              <option value="updateDatabase">Update Database</option>
+              <option value="binderVerification">Binder Verification</option>
+            </select>
+          </div>
+
+          <!-- Pipeline Options -->
+          <div class="pipeline-options">
+            <!-- Run Files -->
+            <div v-if="selectedPipeline === 'runFiles'" class="form-group">
+              <label for="run-files-date">Run Date/Time</label>
               <input
+                id="run-files-date"
                 type="datetime-local"
                 v-model="pipelineOptions.runFilesDate"
+                class="input"
+                :disabled="loadingPipeline"
               />
-            </label>
+            </div>
+
+            <!-- Update Database -->
+            <div v-if="selectedPipeline === 'updateDatabase'" class="form-group">
+              <label for="start-date">Start Date</label>
+              <input
+                id="start-date"
+                type="date"
+                v-model="pipelineOptions.startDate"
+                class="input"
+                :disabled="loadingPipeline"
+              />
+              <label for="end-date">End Date</label>
+              <input
+                id="end-date"
+                type="date"
+                v-model="pipelineOptions.endDate"
+                class="input"
+                :disabled="loadingPipeline"
+              />
+            </div>
+
+            <!-- Binder Verification -->
+            <div v-if="selectedPipeline === 'binderVerification'" class="form-group">
+              <label for="binder-date">Run Date</label>
+              <input
+                id="binder-date"
+                type="date"
+                v-model="pipelineOptions.binderDate"
+                class="input"
+                :disabled="loadingPipeline"
+              />
+            </div>
           </div>
 
-          <!-- If user selects "Update Database" -->
-          <div v-if="selectedPipeline === 'updateDatabase'" class="pipeline-options">
-            <label class="date-label">
-              Start Date:
-              <input type="date" v-model="pipelineOptions.startDate" />
-            </label>
-            <label class="date-label">
-              End Date:
-              <input type="date" v-model="pipelineOptions.endDate" />
-            </label>
-          </div>
-
-          <!-- If user selects "Binder Verification" -->
-          <div v-if="selectedPipeline === 'binderVerification'" class="pipeline-options">
-            <label class="date-label">
-              Select Date:
-              <input type="date" v-model="pipelineOptions.binderDate" />
-            </label>
-          </div>
-
+          <!-- Execute Button -->
           <button
-            class="btn action-btn primary wide"
+            class="btn execute-btn"
             @click="runSelectedPipeline"
             :disabled="loadingPipeline || !isPipelineValid"
           >
-            {{ loadingPipeline ? "Processing..." : "Execute Pipeline" }}
+            <i class="pi pi-play" v-if="!loadingPipeline"></i>
+            <i class="pi pi-spin pi-spinner" v-else></i>
+            {{ loadingPipeline ? "Running..." : "Run Pipeline" }}
           </button>
 
-          <p v-if="errorPipeline" class="error-text">{{ errorPipeline }}</p>
-          <p v-if="responsePipeline" class="success-text">{{ responsePipeline }}</p>
+          <!-- Status Messages -->
+          <p v-if="errorPipeline" class="error">{{ errorPipeline }}</p>
+          <p v-if="responsePipeline" class="success">{{ responsePipeline }}</p>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   </div>
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios';
 
 export default {
-  name: "RunPipelinesView",
+  name: 'RunPipelinesView',
   data() {
     return {
       // FILES
@@ -179,14 +200,11 @@ export default {
       selectAll: false,
 
       // PIPELINE
-      selectedPipeline: "runFiles",
+      selectedPipeline: 'runFiles',
       pipelineOptions: {
-        // "Run Files" => auto-populate current date/time in "YYYY-MM-DDTHH:MM"
         runFilesDate: this.getLocalDateTime(),
-        // "Update Database"
         startDate: this.getOneMonthAgo(),
         endDate: this.getToday(),
-        // "Binder"
         binderDate: this.getFirstOfMonth(),
       },
       loadingPipeline: false,
@@ -203,11 +221,11 @@ export default {
       return this.files.slice(startIndex, startIndex + this.itemsPerPage);
     },
     isPipelineValid() {
-      if (this.selectedPipeline === "runFiles") {
+      if (this.selectedPipeline === 'runFiles') {
         return this.selectedFiles.length > 0 && !!this.pipelineOptions.runFilesDate;
-      } else if (this.selectedPipeline === "updateDatabase") {
+      } else if (this.selectedPipeline === 'updateDatabase') {
         return this.pipelineOptions.startDate && this.pipelineOptions.endDate;
-      } else if (this.selectedPipeline === "binderVerification") {
+      } else if (this.selectedPipeline === 'binderVerification') {
         return !!this.pipelineOptions.binderDate;
       }
       return false;
@@ -216,48 +234,33 @@ export default {
   methods: {
     // Date Helpers
     getToday() {
-      const now = new Date();
-      return now.toISOString().split("T")[0]; // "YYYY-MM-DD"
+      return new Date().toISOString().split('T')[0];
     },
     getOneMonthAgo() {
       const date = new Date();
       date.setMonth(date.getMonth() - 1);
-      return date.toISOString().split("T")[0];
+      return date.toISOString().split('T')[0];
     },
     getFirstOfMonth() {
       const date = new Date();
       date.setDate(1);
-      return date.toISOString().split("T")[0];
+      return date.toISOString().split('T')[0];
     },
-
-    /**
-     * For "runFilesDate" default, returns "YYYY-MM-DDTHH:MM"
-     * e.g. "2025-01-29T10:21"
-     */
     getLocalDateTime() {
       const now = new Date();
-      // Shift to local time
       const offsetMs = now.getTime() - now.getTimezoneOffset() * 60000;
-      const local = new Date(offsetMs);
-      return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+      return new Date(offsetMs).toISOString().slice(0, 16);
     },
-
-    /**
-     * Reformat "YYYY-MM-DDTHH:MM" -> "YYYY-MM-DDTHH:MM:SS.ffffff"
-     * So if user picks "2025-01-29T10:21",
-     * We convert => "2025-01-29T10:21:00.000000"
-     */
     formatDateTimeWithMicros(dtLocal) {
       if (!dtLocal) return null;
-      // parse
       const dateObj = new Date(dtLocal);
       const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-      const day = String(dateObj.getDate()).padStart(2, "0");
-      const hour = String(dateObj.getHours()).padStart(2, "0");
-      const minute = String(dateObj.getMinutes()).padStart(2, "0");
-      const second = String(dateObj.getSeconds()).padStart(2, "0");
-      const micros = "000001"; // or parse from ms if you want partial
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const hour = String(dateObj.getHours()).padStart(2, '0');
+      const minute = String(dateObj.getMinutes()).padStart(2, '0');
+      const second = String(dateObj.getSeconds()).padStart(2, '0');
+      const micros = '000001';
       return `${year}-${month}-${day}T${hour}:${minute}:${second}.${micros}`;
     },
 
@@ -266,43 +269,39 @@ export default {
       this.loadingFiles = true;
       this.errorFiles = null;
       try {
-        const response = await axios.get(`https://dev.rocox.co/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
+        const response = await axios.get(`/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
         if (!Array.isArray(response.data)) {
-          throw new Error("Expected an array of file paths from server");
+          throw new Error('Expected an array of file paths from server');
         }
-        this.files = response.data.map((rawPath) => {
-          const parts = rawPath.split("/");
+        this.files = response.data.map(rawPath => {
+          const parts = rawPath.split('/');
           const fileName = parts.pop();
-          const company = parts.pop() || "";
-          const folder = parts.pop() || "";
+          const company = parts.pop() || '';
+          const folder = parts.pop() || '';
           return {
             path: rawPath,
             fileName,
-            folder: folder ? folder + " => " : "",
+            folder: folder ? folder + ' => ' : '',
             company,
           };
         });
       } catch (error) {
-        this.errorFiles = "Failed to fetch files.";
+        this.errorFiles = 'Failed to fetch files.';
       } finally {
         this.loadingFiles = false;
       }
     },
     toggleSelectAll() {
-      if (this.selectAll) {
-        this.selectedFiles = [...this.files];
-      } else {
-        this.selectedFiles = [];
-      }
+      this.selectedFiles = this.selectAll ? [...this.files] : [];
     },
     async deleteFile(fileObj) {
       try {
-        await axios.post(`https://dev.rocox.co/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
+        await axios.post(`/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
           filePath: fileObj.path,
         });
         this.fetchFiles();
       } catch (error) {
-        this.errorFiles = "Failed to delete file.";
+        this.errorFiles = 'Failed to delete file.';
       }
     },
 
@@ -313,43 +312,37 @@ export default {
       this.responsePipeline = null;
 
       try {
-        let endpoint = "";
+        let endpoint = '';
         let payload = {};
 
-        if (this.selectedPipeline === "runFiles") {
-          endpoint = "run_files";
-
-          // Convert user-chosen "2025-01-29T10:21" => "2025-01-29T10:21:00.000000"
-          const finalDate = this.formatDateTimeWithMicros(
-            this.pipelineOptions.runFilesDate
-          );
-
+        if (this.selectedPipeline === 'runFiles') {
+          endpoint = 'run_files';
+          const finalDate = this.formatDateTimeWithMicros(this.pipelineOptions.runFilesDate);
           payload = {
-            paths_to_process: this.selectedFiles.map((f) => f.path),
+            paths_to_process: this.selectedFiles.map(f => f.path),
             runDate: finalDate,
           };
-        } else if (this.selectedPipeline === "updateDatabase") {
-          endpoint = "update_sql";
+        } else if (this.selectedPipeline === 'updateDatabase') {
+          endpoint = 'update_sql';
           payload = {
             startDate: this.pipelineOptions.startDate,
             endDate: this.pipelineOptions.endDate,
           };
-        } else if (this.selectedPipeline === "binderVerification") {
-          endpoint = "run_binder_verification";
+        } else if (this.selectedPipeline === 'binderVerification') {
+          endpoint = 'run_binder_verification';
           payload = {
             runDate: this.pipelineOptions.binderDate,
           };
         }
 
         const resp = await axios.post(
-          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          `/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
           payload,
-          { headers: { "Content-Type": "application/json" } }
+          { headers: { 'Content-Type': 'application/json' } }
         );
-        this.responsePipeline = resp.data.message || "Pipeline executed successfully!";
+        this.responsePipeline = resp.data.message || 'Pipeline executed successfully!';
       } catch (error) {
-        this.errorPipeline =
-          error.response?.data?.message || "Pipeline execution failed.";
+        this.errorPipeline = error.response?.data?.message || 'Pipeline execution failed.';
       } finally {
         this.loadingPipeline = false;
       }
@@ -358,223 +351,324 @@ export default {
 };
 </script>
 
-<style>
-/* Container */
-.page-container {
-  background-color: #f3f4f6;
-  color: #333;
+<style scoped>
+.pipeline-runner {
+  background: #f5f7fa;
+  min-height: 100vh;
   padding: 2rem;
-  border-radius: 8px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'Inter', sans-serif;
+  color: #2d3748;
 }
 
+/* Header */
 .header {
   text-align: center;
-  margin-bottom: 2rem;
-}
-.subtitle {
-  margin-top: 0.5rem;
-  font-size: 1rem;
-  color: #555;
+  margin-bottom: 2.5rem;
 }
 
-/* Layout grid */
-.content-grid {
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: #718096;
+}
+
+/* Content Layout */
+.content {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
-@media (max-width: 900px) {
-  .content-grid {
+
+@media (max-width: 1024px) {
+  .content {
     grid-template-columns: 1fr;
   }
 }
 
-/* Card */
-.card {
-  background: #fff;
-  color: #333;
-  border-radius: 8px;
-  box-shadow: 0 0 4px rgba(0,0,0,0.1);
+/* Section Styling */
+.file-section,
+.pipeline-section {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-}
-.card-header {
-  padding: 1.2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-.card-header h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: #111827;
-}
-.card-description {
-  margin: 0.4rem 0 0;
-  font-size: 0.9rem;
-  color: #6b7280;
-}
-.card-body {
-  padding: 1.2rem;
-  flex: 1;
 }
 
-/* File Management Card */
-.file-management {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
-.controls {
+
+.section-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* File Actions */
+.file-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #48bb78;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: background 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #38a169;
+}
+
+.refresh-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+/* File List */
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.file-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.file-list-container {
-  margin-top: 1rem;
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
-.file-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.file-item {
-  background-color: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  padding: 0.8rem;
-  margin-bottom: 0.8rem;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-.file-info {
+
+.file-details {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
-.file-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.file-path {
-  font-size: 0.8rem;
-  color: #777;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 250px;
-}
-.checkbox-label {
+
+.file-checkbox {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+}
+
+.file-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #2d3748;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.file-path {
+  font-size: 0.85rem;
+  color: #718096;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.delete-btn {
+  background: #f56565;
+  color: white;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #e53e3e;
+}
+
+.delete-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+/* Status Messages */
+.status {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.loading {
+  color: #4a5568;
+  font-size: 1rem;
+}
+
+.error {
+  color: #e53e3e;
+  font-size: 1rem;
+}
+
+.no-files {
+  color: #718096;
   font-size: 0.9rem;
-  cursor: pointer;
+  text-align: center;
+  padding: 2rem 0;
 }
 
 /* Pagination */
-.pagination-controls {
+.pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
   margin-top: 1rem;
 }
-.page-btn {
-  background-color: #777;
-  border: none;
-  border-radius: 4px;
-  padding: 0.6rem 1rem;
-  color: #fff;
-}
-.page-btn:disabled {
-  background-color: #aaa;
-}
-.page-info {
-  font-size: 0.9rem;
-}
 
-/* Process Runner Card */
-.process-runner .dropdown-label {
-  margin-bottom: 0.4rem;
-  font-weight: 600;
-}
-.pipeline-select {
-  width: 100%;
+.pagination-btn {
+  background: #e2e8f0;
+  color: #2d3748;
   padding: 0.5rem;
   border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+  transition: background 0.2s ease;
 }
+
+.pagination-btn:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.pagination-btn:disabled {
+  background: #edf2f7;
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+/* Pipeline Form */
+.pipeline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.select,
+.input {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: border-color 0.2s ease;
+}
+
+.select:focus,
+.input:focus {
+  border-color: #4299e1;
+  outline: none;
+}
+
+.select:disabled,
+.input:disabled {
+  background: #edf2f7;
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
 .pipeline-options {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1rem;
-}
-.date-label {
-  font-size: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
 }
 
-/* Buttons */
-.btn {
-  border: none;
-  border-radius: 4px;
-  padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
-  color: #ffffff;
-  cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+.execute-btn {
+  background: #4299e1;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease;
 }
-.action-btn.refresh {
-  background-color: #10b981; /* green */
+
+.execute-btn:hover:not(:disabled) {
+  background: #3182ce;
 }
-.action-btn.danger {
-  background-color: #ef4444; /* red */
-}
-.action-btn.primary {
-  background-color: #3b82f6; /* blue */
-}
-.action-btn:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-.wide {
-  width: 100%;
-}
-.btn:disabled {
-  background-color: #aaa;
+
+.execute-btn:disabled {
+  background: #a0aec0;
   cursor: not-allowed;
 }
 
-/* Info & Error Messages */
-.info-text {
+.success {
+  color: #38a169;
   font-size: 0.9rem;
-  color: #444;
-}
-.error-text {
-  color: #dc3545;
-  margin-top: 0.5rem;
-}
-.success-text {
-  color: #10b981;
-  margin-top: 0.5rem;
+  text-align: center;
+  margin-top: 1rem;
 }
 
-/* Utility */
-.truncate {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.file-actions {
-  margin-left: auto;
+/* Animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
