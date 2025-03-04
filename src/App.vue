@@ -24,9 +24,21 @@ const WARNING_DURATION = 60 * 1000; // 1 minute
 
 // Sidebar collapse/expand logic
 const isSidebarExpanded = ref(false);
+let sidebarTimer = null;
+
+function handleSidebarMouseEnter() {
+  sidebarTimer = setTimeout(() => {
+    isSidebarExpanded.value = true;
+  }, 1000); // Expand after 1 second of hover (desktop only)
+}
+
+function handleSidebarMouseLeave() {
+  clearTimeout(sidebarTimer);
+  isSidebarExpanded.value = false;
+}
 
 function toggleSidebar() {
-  isSidebarExpanded.value = !isSidebarExpanded.value; // Toggle on click/tap
+  isSidebarExpanded.value = !isSidebarExpanded.value; // Toggle on click (mobile only)
 }
 
 // Navigation and sign-out functions
@@ -42,6 +54,7 @@ function signOut() {
 function navigateTo(path) {
   if (isAuthenticated.value) {
     router.push(path);
+    if (window.innerWidth <= 768) toggleSidebar(); // Close sidebar on mobile after navigation
   } else {
     router.push("/login");
   }
@@ -98,60 +111,70 @@ onUnmounted(() => {
 
 <template>
   <div id="app">
-    <!-- Hamburger Menu Button -->
+    <!-- Hamburger Menu Button (Mobile Only) -->
     <div v-if="isAuthenticated" class="hamburger" @click="toggleSidebar">
-      <div class="hamburger-line"></div>
-      <div class="hamburger-line"></div>
-      <div class="hamburger-line"></div>
+      <div :class="['hamburger-line', { 'line-1': isSidebarExpanded }]"></div>
+      <div :class="['hamburger-line', { 'line-2': isSidebarExpanded }]"></div>
+      <div :class="['hamburger-line', { 'line-3': isSidebarExpanded }]"></div>
     </div>
 
     <!-- SIDEBAR for authenticated users -->
     <aside
       v-if="isAuthenticated"
       :class="['sidebar', { expanded: isSidebarExpanded }]"
+      @mouseenter="handleSidebarMouseEnter"
+      @mouseleave="handleSidebarMouseLeave"
     >
       <!-- Brand Section -->
       <div class="brand-section">
         <img alt="Company Logo" class="logo" src="@/assets/logo2.png" />
       </div>
 
+      <!-- Spacer to center menu -->
+      <div class="spacer"></div>
+
       <!-- Menu Items -->
       <nav class="menu">
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home'); toggleSidebar()">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home')">
           <img src="@/assets/icons/home.svg" alt="Home" />
           <span>Home</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles'); toggleSidebar()">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles')">
           <img src="@/assets/icons/run.svg" alt="Run Files" />
           <span>Run Files</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/fileManagement'); toggleSidebar()">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/fileManagement')">
           <img src="@/assets/icons/upload.svg" alt="File Management" />
           <span>File Management</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/searchContact'); toggleSidebar()">
+        <div class="menu-item" @click="navigateTo('/searchContact')">
           <img src="@/assets/icons/search.svg" alt="Search Contact" />
           <span>Search Contact</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory'); toggleSidebar()">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory')">
           <img src="@/assets/icons/history.svg" alt="Run History" />
           <span>Run History</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/settings'); toggleSidebar()">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/settings')">
           <img src="@/assets/icons/settings.svg" alt="Settings" />
           <span>Settings</span>
         </div>
-        <div class="menu-item signout-container" @click="signOut">
-          <img src="@/assets/icons/logout.svg" alt="Sign Out" />
-          <span>Sign Out</span>
-        </div>
       </nav>
+
+      <!-- Spacer to push sign-out to bottom -->
+      <div class="spacer"></div>
+
+      <!-- Sign Out -->
+      <div class="signout-container" @click="signOut">
+        <img src="@/assets/icons/logout.svg" alt="Sign Out" />
+        <span>Sign Out</span>
+      </div>
     </aside>
 
     <!-- MAIN CONTENT -->
     <main
-      :class="['main-content', { 'full-width': !isAuthenticated || isSidebarExpanded }]"
-      :style="{ marginLeft: isAuthenticated && !isSidebarExpanded ? '70px' : '0' }"
+      :class="['main-content', { 'full-width': !isAuthenticated }]"
+      :style="{ marginLeft: isAuthenticated && !isSidebarExpanded ? '70px' : isAuthenticated && isSidebarExpanded ? '200px' : '0' }"
     >
       <router-view />
     </main>
@@ -188,13 +211,13 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* Hamburger Menu */
+/* Hamburger Menu (Mobile Only) */
 .hamburger {
   position: fixed;
-  top: 10px;
-  right: 10px;
-  width: 30px;
-  height: 25px;
+  top: 15px;
+  right: 15px;
+  width: 35px;
+  height: 30px;
   cursor: pointer;
   z-index: 1001;
   display: none; /* Hidden on desktop */
@@ -202,10 +225,24 @@ onUnmounted(() => {
 
 .hamburger-line {
   width: 100%;
-  height: 3px;
-  background: #333;
+  height: 4px; /* Thicker lines */
+  background: #2d3748; /* Darker, modern color */
   margin: 5px 0;
+  border-radius: 2px; /* Subtle rounding */
   transition: all 0.3s ease;
+}
+
+/* Hamburger Animation to X */
+.hamburger .line-1.expanded {
+  transform: translateY(9px) rotate(45deg);
+}
+
+.hamburger .line-2.expanded {
+  opacity: 0;
+}
+
+.hamburger .line-3.expanded {
+  transform: translateY(-9px) rotate(-45deg);
 }
 
 /* Sidebar */
@@ -221,13 +258,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   padding: 0.5rem 0;
-  transition: transform 0.3s ease;
+  transition: width 0.3s ease; /* Desktop transition */
   z-index: 1000;
 }
 
 .sidebar.expanded {
-  transform: translateX(0); /* Visible on mobile */
-  width: 250px; /* Wider on desktop when expanded */
+  width: 200px; /* Expanded width on desktop */
 }
 
 /* Brand Section */
@@ -247,13 +283,17 @@ onUnmounted(() => {
   width: 60px;
 }
 
+/* Spacer */
+.spacer {
+  flex: 1; /* Equal spacers center the menu */
+}
+
 /* Menu */
 .menu {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   align-items: center;
-  flex: 1;
 }
 
 .menu-item {
@@ -293,9 +333,42 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* Sign Out (within menu) */
+/* Sign Out */
 .signout-container {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  width: 100%;
+}
+
+.signout-container:hover {
+  background: #f5f5f5;
+}
+
+.signout-container img {
+  width: 20px;
+  height: 20px;
+  margin-right: 0;
+  transition: margin-right 0.2s ease;
+}
+
+.sidebar.expanded .signout-container img {
+  margin-right: 0.75rem;
+}
+
+.signout-container span {
+  font-size: 0.9rem;
+  font-weight: 500;
   color: #dc3545;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+
+.sidebar.expanded .signout-container span {
+  opacity: 1;
 }
 
 /* Main Content */
@@ -418,28 +491,41 @@ onUnmounted(() => {
   }
 }
 
-/* Responsive Design */
+/* Responsive Design (Mobile Only) */
 @media (max-width: 768px) {
   .hamburger {
     display: block; /* Show hamburger on mobile */
   }
 
   .sidebar {
-    width: 250px; /* Full menu width */
+    width: 250px; /* Full menu width on mobile */
     height: 100%;
-    transform: translateX(-100%); /* Hidden off-screen */
+    transform: translateX(-100%); /* Hidden off-screen by default */
     padding: 1rem 0;
     border-right: none;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease; /* Slide transition */
   }
 
   .sidebar.expanded {
-    transform: translateX(0); /* Slide in */
+    transform: translateX(0); /* Slide in on mobile */
+    width: 250px; /* Fixed width on mobile */
+  }
+
+  /* Remove hover styling on mobile */
+  .sidebar:not(.expanded) {
+    width: 0;
+    padding: 0;
+    overflow: hidden; /* Fully hide content */
   }
 
   .brand-section {
     padding: 1rem;
     margin-bottom: 1rem;
+  }
+
+  .spacer {
+    display: none; /* No spacers on mobile */
   }
 
   .menu {
@@ -477,12 +563,8 @@ onUnmounted(() => {
   }
 
   .main-content {
-    margin-left: 0 !important;
+    margin-left: 0 !important; /* No sidebar offset on mobile */
     padding: 0.75rem;
-  }
-
-  .main-content.full-width {
-    margin-left: 0;
   }
 
   .logo {
@@ -515,14 +597,14 @@ onUnmounted(() => {
 
 @media (max-width: 480px) {
   .hamburger {
-    width: 25px;
-    height: 20px;
-    top: 8px;
-    right: 8px;
+    width: 30px;
+    height: 25px;
+    top: 12px;
+    right: 12px;
   }
 
   .hamburger-line {
-    height: 2px;
+    height: 3px; /* Slightly thinner */
     margin: 4px 0;
   }
 
