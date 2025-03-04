@@ -24,17 +24,9 @@ const WARNING_DURATION = 60 * 1000; // 1 minute
 
 // Sidebar collapse/expand logic
 const isSidebarExpanded = ref(false);
-let sidebarTimer = null;
 
-function handleSidebarMouseEnter() {
-  sidebarTimer = setTimeout(() => {
-    isSidebarExpanded.value = true;
-  }, 1000); // Expand after 1 second of hover
-}
-
-function handleSidebarMouseLeave() {
-  clearTimeout(sidebarTimer);
-  isSidebarExpanded.value = false;
+function toggleSidebar() {
+  isSidebarExpanded.value = !isSidebarExpanded.value; // Toggle on click/tap
 }
 
 // Navigation and sign-out functions
@@ -106,63 +98,60 @@ onUnmounted(() => {
 
 <template>
   <div id="app">
+    <!-- Hamburger Menu Button -->
+    <div v-if="isAuthenticated" class="hamburger" @click="toggleSidebar">
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+    </div>
+
     <!-- SIDEBAR for authenticated users -->
     <aside
       v-if="isAuthenticated"
       :class="['sidebar', { expanded: isSidebarExpanded }]"
-      @mouseenter="handleSidebarMouseEnter"
-      @mouseleave="handleSidebarMouseLeave"
     >
       <!-- Brand Section -->
       <div class="brand-section">
         <img alt="Company Logo" class="logo" src="@/assets/logo2.png" />
       </div>
 
-      <!-- Spacer to center menu -->
-      <div class="spacer"></div>
-
       <!-- Menu Items -->
       <nav class="menu">
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home'); toggleSidebar()">
           <img src="@/assets/icons/home.svg" alt="Home" />
           <span>Home</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles'); toggleSidebar()">
           <img src="@/assets/icons/run.svg" alt="Run Files" />
           <span>Run Files</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/fileManagement')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/fileManagement'); toggleSidebar()">
           <img src="@/assets/icons/upload.svg" alt="File Management" />
           <span>File Management</span>
         </div>
-        <div class="menu-item" @click="navigateTo('/searchContact')">
+        <div class="menu-item" @click="navigateTo('/searchContact'); toggleSidebar()">
           <img src="@/assets/icons/search.svg" alt="Search Contact" />
           <span>Search Contact</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory'); toggleSidebar()">
           <img src="@/assets/icons/history.svg" alt="Run History" />
           <span>Run History</span>
         </div>
-        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/settings')">
+        <div v-if="isAdmin" class="menu-item" @click="navigateTo('/settings'); toggleSidebar()">
           <img src="@/assets/icons/settings.svg" alt="Settings" />
           <span>Settings</span>
         </div>
+        <div class="menu-item signout-container" @click="signOut">
+          <img src="@/assets/icons/logout.svg" alt="Sign Out" />
+          <span>Sign Out</span>
+        </div>
       </nav>
-
-      <!-- Spacer to push sign-out to bottom -->
-      <div class="spacer"></div>
-
-      <!-- Sign Out -->
-      <div class="signout-container" @click="signOut">
-        <img src="@/assets/icons/logout.svg" alt="Sign Out" />
-        <span>Sign Out</span>
-      </div>
     </aside>
 
     <!-- MAIN CONTENT -->
     <main
-      :class="['main-content', { 'full-width': !isAuthenticated }]"
-      :style="{ marginLeft: isAuthenticated ? (isSidebarExpanded ? '200px' : '70px') : '0' }"
+      :class="['main-content', { 'full-width': !isAuthenticated || isSidebarExpanded }]"
+      :style="{ marginLeft: isAuthenticated && !isSidebarExpanded ? '70px' : '0' }"
     >
       <router-view />
     </main>
@@ -196,6 +185,27 @@ onUnmounted(() => {
   height: 100vh;
   font-family: "Inter", sans-serif;
   background: #f5f7fa;
+  position: relative;
+}
+
+/* Hamburger Menu */
+.hamburger {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 25px;
+  cursor: pointer;
+  z-index: 1001;
+  display: none; /* Hidden on desktop */
+}
+
+.hamburger-line {
+  width: 100%;
+  height: 3px;
+  background: #333;
+  margin: 5px 0;
+  transition: all 0.3s ease;
 }
 
 /* Sidebar */
@@ -204,90 +214,49 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   height: 100%;
-  width: 70px; /* Collapsed width */
+  width: 70px; /* Collapsed width on desktop */
   background: #ffffff;
   color: #333;
   border-right: 1px solid #e6e6e6;
   display: flex;
   flex-direction: column;
-  padding: 1rem 0;
-  transition: width 0.3s ease;
+  padding: 0.5rem 0;
+  transition: transform 0.3s ease;
   z-index: 1000;
 }
 
 .sidebar.expanded {
-  width: 200px; /* Expanded width */
+  transform: translateX(0); /* Visible on mobile */
+  width: 250px; /* Wider on desktop when expanded */
 }
 
 /* Brand Section */
 .brand-section {
   text-align: center;
-  padding: 0 0.5rem;
-  margin-bottom: 1rem;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .logo {
-  width: 50px; /* Collapsed size */
+  width: 40px;
   height: auto;
   transition: width 0.3s ease;
 }
 
 .sidebar.expanded .logo {
-  width: 80px; /* Expanded size */
-}
-
-/* Spacer */
-.spacer {
-  flex: 1; /* Equal spacers center the menu */
+  width: 60px;
 }
 
 /* Menu */
 .menu {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* Close spacing for menu items */
+  gap: 0.5rem;
   align-items: center;
+  flex: 1;
 }
 
 .menu-item {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem; /* Larger click area */
-  cursor: pointer;
-  transition: background 0.2s ease;
-  width: 100%; /* Full width for click area */
-}
-
-.menu-item:hover {
-  background: #f5f5f5;
-}
-
-.menu-item img {
-  width: 24px;
-  height: 24px;
-  margin-right: 0; /* No margin when collapsed */
-  transition: margin-right 0.2s ease;
-}
-
-.sidebar.expanded .menu-item img {
-  margin-right: 1rem; /* Margin when expanded */
-}
-
-.menu-item span {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #2d3748;
-  opacity: 0; /* Hidden when collapsed */
-  transition: opacity 0.3s ease;
-  white-space: nowrap;
-}
-
-.sidebar.expanded .menu-item span {
-  opacity: 1; /* Fade in when expanded */
-}
-
-/* Sign Out */
-.signout-container {
   display: flex;
   align-items: center;
   padding: 0.75rem;
@@ -296,32 +265,37 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.signout-container:hover {
+.menu-item:hover {
   background: #f5f5f5;
 }
 
-.signout-container img {
-  width: 24px;
-  height: 24px;
+.menu-item img {
+  width: 20px;
+  height: 20px;
   margin-right: 0;
   transition: margin-right 0.2s ease;
 }
 
-.sidebar.expanded .signout-container img {
-  margin-right: 1rem;
+.sidebar.expanded .menu-item img {
+  margin-right: 0.75rem;
 }
 
-.signout-container span {
-  font-size: 0.95rem;
+.menu-item span {
+  font-size: 0.9rem;
   font-weight: 500;
-  color: #dc3545; /* Red text */
-  opacity: 0; /* Hidden when collapsed */
+  color: #2d3748;
+  opacity: 0;
   transition: opacity 0.3s ease;
   white-space: nowrap;
 }
 
-.sidebar.expanded .signout-container span {
-  opacity: 1; /* Fade in when expanded */
+.sidebar.expanded .menu-item span {
+  opacity: 1;
+}
+
+/* Sign Out (within menu) */
+.signout-container {
+  color: #dc3545;
 }
 
 /* Main Content */
@@ -329,6 +303,10 @@ onUnmounted(() => {
   flex: 1;
   padding: 1rem;
   transition: margin-left 0.3s ease;
+}
+
+.main-content.full-width {
+  margin-left: 0;
 }
 
 /* Sign Out Overlay */
@@ -348,19 +326,20 @@ onUnmounted(() => {
 .signout-card {
   background: #606060;
   border-radius: 8px;
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
 }
 
 .signout-card h2 {
   color: #fff;
+  font-size: 1.25rem;
   margin-bottom: 1rem;
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 4px solid #ccc;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ccc;
   border-top-color: #666;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -383,32 +362,35 @@ onUnmounted(() => {
 
 .modal-content {
   background: #fff;
-  padding: 2rem;
-  border-radius: 12px;
+  padding: 1.5rem;
+  border-radius: 8px;
   text-align: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  max-width: 400px;
+  max-width: 90%;
+  width: 300px;
 }
 
 .modal-content h2 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: #2d3748;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .modal-content p {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #718096;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.2s ease;
+  min-width: 100px;
+  margin: 0.25rem;
 }
 
 .btn.primary {
@@ -438,85 +420,133 @@ onUnmounted(() => {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .hamburger {
+    display: block; /* Show hamburger on mobile */
+  }
+
   .sidebar {
-    width: 100%;
-    height: auto;
-    position: relative;
-    flex-direction: row;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid #e6e6e6;
+    width: 250px; /* Full menu width */
+    height: 100%;
+    transform: translateX(-100%); /* Hidden off-screen */
+    padding: 1rem 0;
     border-right: none;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
   }
 
   .sidebar.expanded {
-    width: 100%;
+    transform: translateX(0); /* Slide in */
   }
 
   .brand-section {
-    margin: 0 1rem 0 0;
-  }
-
-  .spacer {
-    display: none; /* No spacer on mobile */
+    padding: 1rem;
+    margin-bottom: 1rem;
   }
 
   .menu {
-    flex-direction: row;
-    gap: 0.5rem;
-    flex: 1;
-    justify-content: center;
-    padding-bottom: 0;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 0 1rem;
   }
 
   .menu-item {
-    padding: 0.5rem;
-    flex-direction: row;
+    padding: 0.75rem 1rem;
+    justify-content: flex-start;
   }
 
   .menu-item img {
-    margin-right: 0.5rem;
-    margin-bottom: 0;
+    width: 20px;
+    height: 20px;
+    margin-right: 1rem;
   }
 
   .menu-item span {
-    font-size: 0.75rem;
-    opacity: 1; /* Always visible on mobile when expanded */
-  }
-
-  .sidebar:not(.expanded) .menu-item span {
-    display: none; /* Hidden when collapsed on mobile */
+    font-size: 1rem;
+    opacity: 1; /* Always visible when expanded */
   }
 
   .signout-container {
-    padding: 0.5rem;
-    flex-direction: row;
+    padding: 0.75rem 1rem;
   }
 
   .signout-container img {
-    margin-right: 0.5rem;
-    margin-bottom: 0;
+    margin-right: 1rem;
   }
 
   .signout-container span {
-    font-size: 0.75rem;
     opacity: 1;
   }
 
-  .sidebar:not(.expanded) .signout-container span {
-    display: none;
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0.75rem;
   }
 
-  .main-content {
-    margin-left: 0 !important; /* Override inline style on mobile */
-    padding: 1rem;
+  .main-content.full-width {
+    margin-left: 0;
   }
 
   .logo {
-    width: 40px; /* Smaller on mobile collapsed */
+    width: 50px;
   }
 
-  .sidebar.expanded .logo {
-    width: 60px; /* Slightly smaller expanded size on mobile */
+  /* Overlays */
+  .signout-card,
+  .modal-content {
+    padding: 1rem;
+    max-width: 85%;
+    width: 280px;
+  }
+
+  .signout-card h2,
+  .modal-content h2 {
+    font-size: 1.1rem;
+  }
+
+  .modal-content p {
+    font-size: 0.85rem;
+  }
+
+  .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hamburger {
+    width: 25px;
+    height: 20px;
+    top: 8px;
+    right: 8px;
+  }
+
+  .hamburger-line {
+    height: 2px;
+    margin: 4px 0;
+  }
+
+  .sidebar {
+    width: 200px;
+  }
+
+  .menu-item span,
+  .signout-container span {
+    font-size: 0.9rem;
+  }
+
+  .menu-item img,
+  .signout-container img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .main-content {
+    padding: 0.5rem;
+  }
+
+  .logo {
+    width: 40px;
   }
 }
 </style>
