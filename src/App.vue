@@ -274,13 +274,13 @@ onUnmounted(() => {
 }
 
 .logo {
-  width: 40px;
+  width: 60px;
   height: auto;
   transition: width 0.3s ease;
 }
 
 .sidebar.expanded .logo {
-  width: 60px;
+  width: 130px;
 }
 
 /* Spacer */
