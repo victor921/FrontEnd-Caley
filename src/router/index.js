@@ -67,20 +67,31 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
-  // Load the user state only if it hasn't been loaded yet.
+
+  // If the user is not loaded, load it (and await the admin list)
   if (!userStore.user) {
     await userStore.loadUserFromStorage();
+  } else if (userStore.adminList.length === 0) {
+    // Ensure the admin list is loaded if the user is already set.
+    await userStore.loadAdminList();
   }
 
   const isAuthenticated = userStore.isAuthenticated;
   const isAdmin = userStore.isAdmin;
+  const userEmail = userStore.user ? userStore.user.email.toLowerCase() : null;
+  const blacklist = userStore.blacklist || [];
 
-  // Redirect to /login if the route requires authentication and the user isn't authenticated.
+  // If the user's email is blacklisted, redirect them to /login.
+  if (userEmail && blacklist.includes(userEmail)) {
+    return next('/login');
+  }
+
+  // If the route requires authentication and the user isn't authenticated, redirect to /login.
   if (to.meta.requiresAuth && !isAuthenticated) {
     return next('/login');
   }
 
-  // If an authenticated user tries to access /login, redirect them appropriately.
+  // If an authenticated user tries to access /login, redirect appropriately.
   if (to.path === '/login' && isAuthenticated) {
     return next(isAdmin ? '/home' : '/searchContact');
   }

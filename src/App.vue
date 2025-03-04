@@ -9,7 +9,7 @@ const userStore = useUserStore();
 // Reactive user state
 const user = computed(() => userStore.user);
 const isAuthenticated = computed(() => !!user.value);
-const isAdmin = computed(() => userStore.isAdmin); // Add isAdmin getter
+const isAdmin = computed(() => userStore.isAdmin);
 const isSigningOut = computed(() => userStore.isSigningOut);
 
 // Inactivity timer state
@@ -21,6 +21,21 @@ let countdownTimer = null;
 // Constants (in milliseconds)
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
 const WARNING_DURATION = 60 * 1000; // 1 minute
+
+// Sidebar collapse/expand logic
+const isSidebarExpanded = ref(false);
+let sidebarTimer = null;
+
+function handleSidebarMouseEnter() {
+  sidebarTimer = setTimeout(() => {
+    isSidebarExpanded.value = true;
+  }, 1000); // Expand after 1 second of hover
+}
+
+function handleSidebarMouseLeave() {
+  clearTimeout(sidebarTimer);
+  isSidebarExpanded.value = false;
+}
 
 // Navigation and sign-out functions
 function signOut() {
@@ -92,17 +107,24 @@ onUnmounted(() => {
 <template>
   <div id="app">
     <!-- SIDEBAR for authenticated users -->
-    <aside v-if="isAuthenticated" class="sidebar">
-      <!-- BRAND SECTION -->
+    <aside
+      v-if="isAuthenticated"
+      :class="['sidebar', { expanded: isSidebarExpanded }]"
+      @mouseenter="handleSidebarMouseEnter"
+      @mouseleave="handleSidebarMouseLeave"
+    >
+      <!-- Brand Section -->
       <div class="brand-section">
         <img alt="Company Logo" class="logo" src="@/assets/logo2.png" />
       </div>
 
-      <!-- MENU ITEMS -->
+      <!-- Spacer to center menu -->
+      <div class="spacer"></div>
+
+      <!-- Menu Items -->
       <nav class="menu">
-        <!-- Admin-only tabs -->
         <div v-if="isAdmin" class="menu-item" @click="navigateTo('/home')">
-          <img src="@/assets/icons/home.svg" alt="Dashboard" />
+          <img src="@/assets/icons/home.svg" alt="Home" />
           <span>Home</span>
         </div>
         <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runFiles')">
@@ -113,12 +135,10 @@ onUnmounted(() => {
           <img src="@/assets/icons/upload.svg" alt="File Management" />
           <span>File Management</span>
         </div>
-        <!-- Search Contact available to all authenticated users -->
         <div class="menu-item" @click="navigateTo('/searchContact')">
           <img src="@/assets/icons/search.svg" alt="Search Contact" />
           <span>Search Contact</span>
         </div>
-        <!-- Admin-only tabs continued -->
         <div v-if="isAdmin" class="menu-item" @click="navigateTo('/runHistory')">
           <img src="@/assets/icons/history.svg" alt="Run History" />
           <span>Run History</span>
@@ -129,15 +149,21 @@ onUnmounted(() => {
         </div>
       </nav>
 
-      <!-- SIGN OUT ICON AT BOTTOM LEFT -->
+      <!-- Spacer to push sign-out to bottom -->
+      <div class="spacer"></div>
+
+      <!-- Sign Out -->
       <div class="signout-container" @click="signOut">
-        <img src="@/assets/icons/logout.svg" alt="Logout Icon" />
+        <img src="@/assets/icons/logout.svg" alt="Sign Out" />
         <span>Sign Out</span>
       </div>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main :class="['main-content', { 'full-width': !isAuthenticated }]">
+    <main
+      :class="['main-content', { 'full-width': !isAuthenticated }]"
+      :style="{ marginLeft: isAuthenticated ? (isSidebarExpanded ? '200px' : '70px') : '0' }"
+    >
       <router-view />
     </main>
 
@@ -157,8 +183,8 @@ onUnmounted(() => {
           You will be signed out in {{ countdown }} seconds due to inactivity.
           Do you want to stay signed in?
         </p>
-        <button @click="extendSession">Stay Signed In</button>
-        <button @click="signOut">Sign Out Now</button>
+        <button @click="extendSession" class="btn primary">Stay Signed In</button>
+        <button @click="signOut" class="btn danger">Sign Out Now</button>
       </div>
     </div>
   </div>
@@ -169,129 +195,179 @@ onUnmounted(() => {
   display: flex;
   height: 100vh;
   font-family: "Inter", sans-serif;
+  background: #f5f7fa;
 }
 
-/* SIDEBAR */
+/* Sidebar */
 .sidebar {
-  width: 250px;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 70px; /* Collapsed width */
+  background: #ffffff;
   color: #333;
   border-right: 1px solid #e6e6e6;
-  justify-content: space-between;
-  padding: 1rem;
-}
-.brand-section {
-  text-align: center;
-  margin-bottom: 1rem;
-}
-.logo {
-  max-width: 80%;
-  height: auto;
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+  transition: width 0.3s ease;
+  z-index: 1000;
 }
 
-/* MENU */
+.sidebar.expanded {
+  width: 200px; /* Expanded width */
+}
+
+/* Brand Section */
+.brand-section {
+  text-align: center;
+  padding: 0 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.logo {
+  width: 50px; /* Collapsed size */
+  height: auto;
+  transition: width 0.3s ease;
+}
+
+.sidebar.expanded .logo {
+  width: 80px; /* Expanded size */
+}
+
+/* Spacer */
+.spacer {
+  flex: 1; /* Equal spacers center the menu */
+}
+
+/* Menu */
 .menu {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem; /* Close spacing for menu items */
+  align-items: center;
 }
+
 .menu-item {
   display: flex;
   align-items: center;
+  padding: 0.75rem; /* Larger click area */
   cursor: pointer;
-  color: #333;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
+  transition: background 0.2s ease;
+  width: 100%; /* Full width for click area */
 }
+
 .menu-item:hover {
-  background-color: #f5f5f5;
+  background: #f5f5f5;
 }
+
 .menu-item img {
   width: 24px;
   height: 24px;
-  margin-right: 8px;
+  margin-right: 0; /* No margin when collapsed */
+  transition: margin-right 0.2s ease;
 }
+
+.sidebar.expanded .menu-item img {
+  margin-right: 1rem; /* Margin when expanded */
+}
+
 .menu-item span {
   font-size: 0.95rem;
   font-weight: 500;
+  color: #2d3748;
+  opacity: 0; /* Hidden when collapsed */
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
 }
 
-/* SIGN OUT ICON AT BOTTOM */
+.sidebar.expanded .menu-item span {
+  opacity: 1; /* Fade in when expanded */
+}
+
+/* Sign Out */
 .signout-container {
-  margin-top: 1rem;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  padding: 0.75rem;
   cursor: pointer;
+  transition: background 0.2s ease;
+  width: 100%;
 }
+
 .signout-container:hover {
-  background-color: #f5f5f5;
+  background: #f5f5f5;
 }
+
 .signout-container img {
   width: 24px;
   height: 24px;
+  margin-right: 0;
+  transition: margin-right 0.2s ease;
 }
+
+.sidebar.expanded .signout-container img {
+  margin-right: 1rem;
+}
+
 .signout-container span {
   font-size: 0.95rem;
   font-weight: 500;
-  color: #dc3545;
+  color: #dc3545; /* Red text */
+  opacity: 0; /* Hidden when collapsed */
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
 }
 
-/* MAIN CONTENT */
+.sidebar.expanded .signout-container span {
+  opacity: 1; /* Fade in when expanded */
+}
+
+/* Main Content */
 .main-content {
   flex: 1;
-  background-color: #f7f9fa;
   padding: 1rem;
-}
-.full-width {
-  width: 100%;
-  margin: 0 auto;
+  transition: margin-left 0.3s ease;
 }
 
-/* SIGN OUT OVERLAY */
+/* Sign Out Overlay */
 .signout-message {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 999;
 }
+
 .signout-card {
   background: #606060;
   border-radius: 8px;
   padding: 2rem;
   text-align: center;
 }
+
 .signout-card h2 {
   color: #fff;
+  margin-bottom: 1rem;
 }
+
 .spinner {
-  margin-top: 1rem;
   width: 24px;
   height: 24px;
   border: 4px solid #ccc;
   border-top-color: #666;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  margin: 0 auto;
 }
 
-/* INACTIVITY WARNING MODAL */
+/* Inactivity Warning Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -302,65 +378,145 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 998; /* Below sign-out overlay */
+  z-index: 998;
 }
+
 .modal-content {
   background: #fff;
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 12px;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
 }
-.modal-content button {
-  margin: 0.5rem;
-  padding: 0.5rem 1rem;
+
+.modal-content h2 {
+  font-size: 1.5rem;
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.modal-content p {
+  font-size: 1rem;
+  color: #718096;
+  margin-bottom: 1.5rem;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-size: 1rem;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
-.modal-content button:first-child {
-  background: #007bff;
-  color: white;
-}
-.modal-content button:last-child {
-  background: #dc3545;
+
+.btn.primary {
+  background: #4299e1;
   color: white;
 }
 
-/* RESPONSIVE for narrower screens */
-@media (max-width: 768px) {
-  #app {
-    flex-direction: column;
+.btn.primary:hover {
+  background: #3182ce;
+}
+
+.btn.danger {
+  background: #e53e3e;
+  color: white;
+}
+
+.btn.danger:hover {
+  background: #c53030;
+}
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
   .sidebar {
     width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #e6e6e6;
+    height: auto;
+    position: relative;
     flex-direction: row;
-    align-items: center;
-    justify-content: space-around;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e6e6e6;
+    border-right: none;
   }
+
+  .sidebar.expanded {
+    width: 100%;
+  }
+
   .brand-section {
-    margin-bottom: 0;
+    margin: 0 1rem 0 0;
   }
+
+  .spacer {
+    display: none; /* No spacer on mobile */
+  }
+
   .menu {
     flex-direction: row;
-    justify-content: space-around;
-    gap: 1rem;
-    margin: 0;
+    gap: 0.5rem;
+    flex: 1;
+    justify-content: center;
+    padding-bottom: 0;
   }
+
   .menu-item {
-    flex-direction: column;
-    align-items: center;
+    padding: 0.5rem;
+    flex-direction: row;
   }
+
   .menu-item img {
-    margin: 0 0 4px 0;
+    margin-right: 0.5rem;
+    margin-bottom: 0;
   }
+
+  .menu-item span {
+    font-size: 0.75rem;
+    opacity: 1; /* Always visible on mobile when expanded */
+  }
+
+  .sidebar:not(.expanded) .menu-item span {
+    display: none; /* Hidden when collapsed on mobile */
+  }
+
   .signout-container {
-    margin-top: 0;
+    padding: 0.5rem;
+    flex-direction: row;
   }
+
+  .signout-container img {
+    margin-right: 0.5rem;
+    margin-bottom: 0;
+  }
+
+  .signout-container span {
+    font-size: 0.75rem;
+    opacity: 1;
+  }
+
+  .sidebar:not(.expanded) .signout-container span {
+    display: none;
+  }
+
   .main-content {
+    margin-left: 0 !important; /* Override inline style on mobile */
     padding: 1rem;
+  }
+
+  .logo {
+    width: 40px; /* Smaller on mobile collapsed */
+  }
+
+  .sidebar.expanded .logo {
+    width: 60px; /* Slightly smaller expanded size on mobile */
   }
 }
 </style>

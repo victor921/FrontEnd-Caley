@@ -20,7 +20,9 @@
       <transition-group name="fade" tag="div" class="results" v-if="results.length > 0">
         <div v-for="(item, index) in results" :key="index" class="result-tile">
           <div class="result-header">
-            <span class="type-badge" :class="getTypeClass(item.ContactTypeName)">{{ item.ContactTypeName }}</span>
+            <span class="type-badge" :class="getTypeClass(item.ContactTypeName)">{{
+              item.ContactTypeName
+            }}</span>
           </div>
           <div class="result-body">
             <p><strong>Name:</strong> {{ item.ContactName }}</p>
@@ -38,8 +40,8 @@
 </template>
 
 <script>
-import axios from 'axios';
-import debounce from 'lodash/debounce';
+import axios from 'axios'
+import debounce from 'lodash/debounce'
 
 export default {
   name: 'SearchContact',
@@ -50,45 +52,45 @@ export default {
       loading: false,
       error: null,
       searchPerformed: false,
-    };
+    }
   },
   methods: {
     async searchContacts() {
       if (!this.searchInput.trim()) {
-        this.results = [];
-        this.searchPerformed = false;
-        return;
+        this.results = []
+        this.searchPerformed = false
+        return
       }
 
-      this.loading = true;
-      this.error = null;
-      this.searchPerformed = false;
+      this.loading = true
+      this.error = null
+      this.searchPerformed = false
 
       try {
-        const functionUrl = `https://dev.rocox.co/api/search?code=${process.env.VUE_APP_FUNCTION_KEY}`;
+        const functionUrl = `https://dev.rocox.co/api/search?code=${process.env.VUE_APP_FUNCTION_KEY}`
         const response = await axios.get(functionUrl, {
           params: { searchContent: this.searchInput },
-        });
+        })
 
-        const data = response.data;
+        const data = response.data
         // Filter results to only include Customers and Prospects
-        this.results = (data.Contacts || []).filter(item => {
-          const type = item.ContactTypeName?.toLowerCase();
-          return type === 'customer' || type === 'prospect';
-        });
-        this.searchPerformed = true;
+        this.results = (data.Contacts || []).filter((item) => {
+          const type = item.ContactTypeName?.toLowerCase()
+          return type === 'customer' || type === 'prospect'
+        })
+        this.searchPerformed = true
       } catch (err) {
-        this.error = err.response?.data || err.message || 'An error occurred';
-        this.results = [];
+        this.error = err.response?.data || err.message || 'An error occurred'
+        this.results = []
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
     debouncedSearch: debounce(function () {
-      this.searchContacts();
+      this.searchContacts()
     }, 500),
     getTypeClass(type) {
-      return type?.toLowerCase().replace(/\s+/g, '-') || 'unknown';
+      return type?.toLowerCase().replace(/\s+/g, '-') || 'unknown'
     },
     formatAddress(item) {
       const parts = [
@@ -96,11 +98,11 @@ export default {
         item.PrimaryAddressCity,
         item.PrimaryAddressState,
         item.PrimaryAddressZip,
-      ].filter(Boolean);
-      return parts.join(', ');
+      ].filter(Boolean)
+      return parts.join(', ')
     },
   },
-};
+}
 </script>
 
 <style scoped>
@@ -228,8 +230,12 @@ h2 {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .results-container::-webkit-scrollbar {
