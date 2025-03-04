@@ -3,9 +3,7 @@
     <h1 class="page-title">Run History</h1>
 
     <!-- Current Time in EST -->
-    <div class="current-datetime">
-      Current EST Time: {{ currentDatetime }}
-    </div>
+    <div class="current-datetime">Current EST Time: {{ currentDatetime }}</div>
 
     <!-- Loading indicator for file list and statuses -->
     <div v-if="filesLoading" class="loading-state">
@@ -21,11 +19,7 @@
         class="file-item"
         :class="{ latest: index === 0 && currentPage === 1 }"
       >
-        <a
-          href="#"
-          @click.prevent="openFileDetails(file.fullPath)"
-          class="file-link"
-        >
+        <a href="#" @click.prevent="openFileDetails(file.fullPath)" class="file-link">
           {{ file.displayName }}
         </a>
         <!-- Status Badge -->
@@ -38,13 +32,9 @@
 
     <!-- Pagination Controls -->
     <div class="pagination" v-if="totalPages > 1">
-      <button @click="previousPage" :disabled="currentPage === 1">
-        Previous
-      </button>
+      <button @click="previousPage" :disabled="currentPage === 1">Previous</button>
       <span>Page {{ currentPage }} of {{ totalPages }}</span>
-      <button @click="nextPage" :disabled="currentPage === totalPages">
-        Next
-      </button>
+      <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
     </div>
 
     <!-- Modal for Detailed Info -->
@@ -57,12 +47,7 @@
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div
-        class="modal-content"
-        ref="modalContent"
-        tabindex="-1"
-        @keydown.tab.prevent="handleTab"
-      >
+      <div class="modal-content" ref="modalContent" tabindex="-1" @keydown.tab.prevent="handleTab">
         <!-- Modal Header -->
         <div class="modal-header">
           <h2 class="modal-title" id="modal-title">File Details</h2>
@@ -84,9 +69,7 @@
           <p v-else-if="status === 'FAIL'" class="status-fail-text">
             <strong>Job failed. Please see details below.</strong>
           </p>
-          <p v-else>
-            <strong>Status:</strong> {{ status }}
-          </p>
+          <p v-else><strong>Status:</strong> {{ status }}</p>
         </div>
 
         <!-- Real-time countdown for RUNNING status -->
@@ -102,18 +85,11 @@
           </div>
 
           <!-- FAIL scenario with a simple string in RESULT -->
-          <div
-            v-if="status === 'FAIL' && resultIsString"
-            class="fail-details"
-          >
+          <div v-if="status === 'FAIL' && resultIsString" class="fail-details">
             <p><strong>Error:</strong> {{ selectedFileDetails.RESULT }}</p>
             <p v-if="selectedFileDetails.RUN_URL">
               <strong>Run Page:</strong>
-              <a
-                :href="selectedFileDetails.RUN_URL"
-                target="_blank"
-                class="link-button"
-              >
+              <a :href="selectedFileDetails.RUN_URL" target="_blank" class="link-button">
                 View Run
               </a>
             </p>
@@ -121,17 +97,15 @@
 
           <!-- SUCCESS or other statuses with RESULT as an array -->
           <ul
-            v-else-if="selectedFileDetails.RESULT && Array.isArray(selectedFileDetails.RESULT) && selectedFileDetails.RESULT.length"
+            v-else-if="
+              selectedFileDetails.RESULT &&
+              Array.isArray(selectedFileDetails.RESULT) &&
+              selectedFileDetails.RESULT.length
+            "
             class="results-list"
           >
-            <li
-              v-for="(output, i) in selectedFileDetails.RESULT"
-              :key="i"
-              class="output-item"
-            >
-              <p>
-                <strong>Status:</strong> {{ output.status }}
-              </p>
+            <li v-for="(output, i) in selectedFileDetails.RESULT" :key="i" class="output-item">
+              <p><strong>Status:</strong> {{ output.status }}</p>
               <p v-if="output.error_details">
                 <strong>Error Details:</strong> {{ output.error_details }}
               </p>
@@ -139,36 +113,26 @@
                 <strong>Notebook Path:</strong>
                 <span>
                   {{
-                    (output.parameters && output.parameters.notebook_path)
+                    output.parameters && output.parameters.notebook_path
                       ? output.parameters.notebook_path
-                      : "N/A"
+                      : 'N/A'
                   }}
                 </span>
               </p>
               <p>
                 <strong>Source:</strong>
                 {{
-                  (output.parameters && output.parameters.source)
-                    ? output.parameters.source
-                    : "N/A"
+                  output.parameters && output.parameters.source ? output.parameters.source : 'N/A'
                 }}
               </p>
               <p v-if="output.run_page_url">
                 <strong>Run Page:</strong>
-                <a
-                  :href="output.run_page_url"
-                  target="_blank"
-                  class="link-button"
-                >
-                  View Run
-                </a>
+                <a :href="output.run_page_url" target="_blank" class="link-button"> View Run </a>
               </p>
               <hr v-if="i < selectedFileDetails.RESULT.length - 1" />
             </li>
           </ul>
-          <p v-else>
-            No output details available.
-          </p>
+          <p v-else>No output details available.</p>
         </div>
 
         <!-- Close Button -->
@@ -179,7 +143,7 @@
 </template>
 
 <script>
-import { createFocusTrap } from 'focus-trap';
+import { createFocusTrap } from 'focus-trap'
 import { useUserStore } from '@/stores/userStore'
 
 export default {
@@ -189,8 +153,8 @@ export default {
       formattedFiles: [], // { fullPath, displayName, status }
       isModalVisible: false, // Modal toggle
       selectedFileDetails: {}, // Data from the log file
-      status: "", // Current status from the file
-      currentDatetime: "", // Current time in EST
+      status: '', // Current status from the file
+      currentDatetime: '', // Current time in EST
 
       filesLoading: true, // Show spinner while loading
 
@@ -205,130 +169,126 @@ export default {
 
       // Focus Trap
       trap: null,
-    };
+    }
   },
   setup() {
-    const userStore = useUserStore();
-    return { userStore };
+    const userStore = useUserStore()
+    return { userStore }
   },
   computed: {
     // Check if selectedFileDetails.RESULT is a string for FAIL scenario
     resultIsString() {
       return (
-        this.status === "FAIL" &&
+        this.status === 'FAIL' &&
         this.selectedFileDetails.RESULT &&
-        typeof this.selectedFileDetails.RESULT === "string"
-      );
+        typeof this.selectedFileDetails.RESULT === 'string'
+      )
     },
     // Sorted files descending by displayName (latest first)
     sortedFiles() {
       return this.formattedFiles.slice().sort((a, b) => {
-        const aTime = new Date(a.displayName).getTime();
-        const bTime = new Date(b.displayName).getTime();
-        return bTime - aTime;
-      });
+        const aTime = new Date(a.displayName).getTime()
+        const bTime = new Date(b.displayName).getTime()
+        return bTime - aTime
+      })
     },
     // Paginated files based on current page and pageSize
     paginatedFiles() {
-      const start = (this.currentPage - 1) * this.pageSize;
-      const end = start + this.pageSize;
-      return this.sortedFiles.slice(start, end);
+      const start = (this.currentPage - 1) * this.pageSize
+      const end = start + this.pageSize
+      return this.sortedFiles.slice(start, end)
     },
     totalPages() {
-      return Math.ceil(this.sortedFiles.length / this.pageSize);
+      return Math.ceil(this.sortedFiles.length / this.pageSize)
     },
   },
   methods: {
     async loadFiles() {
-
-      this.filesLoading = true;
+      this.filesLoading = true
       try {
-        const response = await fetch(`/api/fetch_files?folder=logs&code=${process.env.VUE_APP_FUNCTION_KEY}`
-      );
+        const response = await fetch(
+          `https://dev.rocox.co/api/fetch_files?folder=logs&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+        )
         if (!response.ok) {
-          throw new Error(`Could not load files. HTTP ${response.status}`);
+          throw new Error(`Could not load files. HTTP ${response.status}`)
         }
 
-        const filePaths = await response.json();
+        const filePaths = await response.json()
 
         // Convert each path into { fullPath, displayName, status: "PENDING" }
         const rawFiles = filePaths
           .map((fullPath) => {
-            const fileName = fullPath.split("/").pop() || "";
-            const timestamp = parseInt(fileName.split(".")[0], 10);
+            const fileName = fullPath.split('/').pop() || ''
+            const timestamp = parseInt(fileName.split('.')[0], 10)
 
-            let displayName = null;
+            let displayName = null
             try {
-              const dateObj = new Date(timestamp);
+              const dateObj = new Date(timestamp)
               if (isNaN(dateObj.getTime())) {
-                throw new Error("Invalid timestamp");
+                throw new Error('Invalid timestamp')
               }
               const options = {
-                timeZone: "America/New_York",
-                timeZoneName: "short",
-              };
-              displayName = dateObj.toLocaleString("en-US", options);
+                timeZone: 'America/New_York',
+                timeZoneName: 'short',
+              }
+              displayName = dateObj.toLocaleString('en-US', options)
             } catch {
-              return null;
+              return null
             }
 
-            return { fullPath, displayName, status: "PENDING" };
+            return { fullPath, displayName, status: 'PENDING' }
           })
-          .filter((f) => f !== null);
+          .filter((f) => f !== null)
 
         // Show all files instead of slicing to 10
-        this.formattedFiles = rawFiles;
+        this.formattedFiles = rawFiles
 
         // Fetch the actual status from get_file_content for each file
-        await Promise.all(
-          this.formattedFiles.map((file) => this.fetchFileStatus(file))
-        );
+        await Promise.all(this.formattedFiles.map((file) => this.fetchFileStatus(file)))
       } catch (error) {
-        console.error("Error loading files:", error);
-        alert("Error loading run history. Please try again later.");
+        console.error('Error loading files:', error)
+        alert('Error loading run history. Please try again later.')
       } finally {
-        this.filesLoading = false;
+        this.filesLoading = false
       }
     },
 
     async fetchFileStatus(file) {
       try {
         const resp = await fetch(
-          `/api/get_file_content?path=${file.fullPath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
-        );
+          `https://dev.rocox.co/api/get_file_content?path=${file.fullPath}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+        )
         if (!resp.ok) {
-          throw new Error(`Status fetch failed with HTTP ${resp.status}`);
+          throw new Error(`Status fetch failed with HTTP ${resp.status}`)
         }
-        const data = await resp.json();
-        file.status = data.STATUS || "PENDING";
+        const data = await resp.json()
+        file.status = data.STATUS || 'PENDING'
       } catch (err) {
-        file.status = "FAIL";
+        file.status = 'FAIL'
       }
     },
 
     async openFileDetails(filePath) {
-      this.stopPolling();
+      this.stopPolling()
 
       try {
         const resp = await fetch(
-          `/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
-        );
+          `https://dev.rocox.co/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+        )
         if (!resp.ok) {
-          throw new Error(`Failed to open file. HTTP ${resp.status}`);
+          throw new Error(`Failed to open file. HTTP ${resp.status}`)
         }
-        const fileData = await resp.json();
+        const fileData = await resp.json()
 
-        this.selectedFileDetails = fileData;
-        this.status = fileData.STATUS || "PENDING";
-        this.isModalVisible = true;
+        this.selectedFileDetails = fileData
+        this.status = fileData.STATUS || 'PENDING'
+        this.isModalVisible = true
 
-        const fileRef = this.formattedFiles.find(
-          (f) => f.fullPath === filePath
-        );
-        if (fileRef) fileRef.status = this.status;
+        const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath)
+        if (fileRef) fileRef.status = this.status
 
-        if (this.status === "RUNNING") {
-          this.startPolling(filePath);
+        if (this.status === 'RUNNING') {
+          this.startPolling(filePath)
         }
 
         this.$nextTick(() => {
@@ -337,135 +297,133 @@ export default {
               escapeDeactivates: true,
               clickOutsideDeactivates: true,
               onDeactivate: this.closeModal,
-            });
-            this.trap.activate();
+            })
+            this.trap.activate()
           }
-        });
+        })
       } catch (error) {
-        console.error("Error fetching file content:", error);
-        alert("Could not load file details. Please try again later.");
+        console.error('Error fetching file content:', error)
+        alert('Could not load file details. Please try again later.')
       }
     },
 
     startPolling(filePath) {
-      this.pollingCountdown = this.pollIntervalSeconds;
-      this.stopPolling();
+      this.pollingCountdown = this.pollIntervalSeconds
+      this.stopPolling()
 
       this.pollingInterval = setInterval(async () => {
-        this.pollingCountdown--;
+        this.pollingCountdown--
 
         if (this.pollingCountdown <= 0) {
-          this.pollingCountdown = this.pollIntervalSeconds;
+          this.pollingCountdown = this.pollIntervalSeconds
 
           try {
-            if (this.status !== "RUNNING") {
-              this.stopPolling();
-              return;
+            if (this.status !== 'RUNNING') {
+              this.stopPolling()
+              return
             }
 
             const resp = await fetch(
-              `/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`
-            );
+              `https://dev.rocox.co/api/get_file_content?path=${filePath}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+            )
             if (!resp.ok) {
-              throw new Error(`Poll error. HTTP ${resp.status}`);
+              throw new Error(`Poll error. HTTP ${resp.status}`)
             }
-            const fileData = await resp.json();
-            this.selectedFileDetails = fileData;
-            this.status = fileData.STATUS;
+            const fileData = await resp.json()
+            this.selectedFileDetails = fileData
+            this.status = fileData.STATUS
 
-            const fileRef = this.formattedFiles.find(
-              (f) => f.fullPath === filePath
-            );
-            if (fileRef) fileRef.status = fileData.STATUS;
+            const fileRef = this.formattedFiles.find((f) => f.fullPath === filePath)
+            if (fileRef) fileRef.status = fileData.STATUS
 
-            if (this.status !== "RUNNING") {
-              this.stopPolling();
+            if (this.status !== 'RUNNING') {
+              this.stopPolling()
             }
           } catch (err) {
-            console.error("Polling error:", err);
-            alert("Error polling the job status. Please try again.");
-            this.stopPolling();
+            console.error('Polling error:', err)
+            alert('Error polling the job status. Please try again.')
+            this.stopPolling()
           }
         }
-      }, 1000);
+      }, 1000)
     },
 
     stopPolling() {
       if (this.pollingInterval) {
-        clearInterval(this.pollingInterval);
-        this.pollingInterval = null;
+        clearInterval(this.pollingInterval)
+        this.pollingInterval = null
       }
-      this.pollingCountdown = 0;
+      this.pollingCountdown = 0
 
       if (this.trap) {
-        this.trap.deactivate();
-        this.trap = null;
+        this.trap.deactivate()
+        this.trap = null
       }
     },
 
     closeModal() {
-      this.isModalVisible = false;
-      this.selectedFileDetails = {};
-      this.status = "";
-      this.stopPolling();
+      this.isModalVisible = false
+      this.selectedFileDetails = {}
+      this.status = ''
+      this.stopPolling()
     },
 
     updateCurrentDatetime() {
       const options = {
-        timeZone: "America/New_York",
-        timeZoneName: "short",
-      };
-      this.currentDatetime = new Date().toLocaleString("en-US", options);
+        timeZone: 'America/New_York',
+        timeZoneName: 'short',
+      }
+      this.currentDatetime = new Date().toLocaleString('en-US', options)
     },
 
     statusBadgeClass(status) {
       switch (status) {
-        case "RUNNING":
-          return "badge-running";
-        case "COMPLETED":
-          return "badge-completed";
-        case "PENDING":
-          return "badge-pending";
-        case "FAIL":
-          return "badge-fail";
+        case 'RUNNING':
+          return 'badge-running'
+        case 'COMPLETED':
+          return 'badge-completed'
+        case 'PENDING':
+          return 'badge-pending'
+        case 'FAIL':
+          return 'badge-fail'
         default:
-          return "badge-unknown";
+          return 'badge-unknown'
       }
     },
 
     handleTab(e) {
-      e.preventDefault();
+      e.preventDefault()
     },
 
     // Pagination controls
     goToPage(pageNumber) {
       if (pageNumber >= 1 && pageNumber <= this.totalPages) {
-        this.currentPage = pageNumber;
+        this.currentPage = pageNumber
       }
     },
 
     nextPage() {
       if (this.currentPage < this.totalPages) {
-        this.currentPage++;
+        this.currentPage++
       }
     },
 
     previousPage() {
       if (this.currentPage > 1) {
-        this.currentPage--;
+        this.currentPage--
       }
     },
   },
   mounted() {
-    this.updateCurrentDatetime();
-    this.loadFiles();
-    this.datetimeInterval = setInterval(this.updateCurrentDatetime, 1000);
+    this.updateCurrentDatetime()
+    this.loadFiles()
+    this.datetimeInterval = setInterval(this.updateCurrentDatetime, 1000)
   },
-  beforeDestroy() {
-    this.stopPolling();
-    clearInterval(this.datetimeInterval);
+  beforeUnmount() {
+    this.stopPolling()
+    clearInterval(this.datetimeInterval)
   },
-};
+}
 </script>
 
 <style scoped>

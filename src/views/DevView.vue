@@ -19,12 +19,8 @@
         </div>
         <div class="card-body">
           <div class="controls">
-            <button
-              @click="fetchFiles"
-              :disabled="loadingFiles"
-              class="btn action-btn refresh"
-            >
-              {{ loadingFiles ? "Refreshing..." : "Refresh Files" }}
+            <button @click="fetchFiles" :disabled="loadingFiles" class="btn action-btn refresh">
+              {{ loadingFiles ? 'Refreshing...' : 'Refresh Files' }}
             </button>
             <label class="checkbox-label">
               <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
@@ -33,71 +29,41 @@
           </div>
 
           <div class="file-list-container">
-            <p v-if="loadingFiles" class="info-text">
-              Refreshing file list...
-            </p>
+            <p v-if="loadingFiles" class="info-text">Refreshing file list...</p>
             <p v-if="errorFiles" class="error-text">{{ errorFiles }}</p>
 
             <!-- Show paginated files -->
             <ul v-if="paginatedFiles.length > 0" class="file-list">
-              <li
-                v-for="(fileObj, index) in paginatedFiles"
-                :key="index"
-                class="file-item"
-              >
+              <li v-for="(fileObj, index) in paginatedFiles" :key="index" class="file-item">
                 <div class="file-info">
                   <label class="checkbox-label" :title="fileObj.fileName">
-                    <input
-                      type="checkbox"
-                      v-model="selectedFiles"
-                      :value="fileObj"
-                    />
+                    <input type="checkbox" v-model="selectedFiles" :value="fileObj" />
                     <span class="file-name truncate">
                       {{ fileObj.fileName }}
                     </span>
                   </label>
-                  <p
-                    class="file-path truncate"
-                    :title="fileObj.folder + fileObj.company"
-                  >
+                  <p class="file-path truncate" :title="fileObj.folder + fileObj.company">
                     {{ fileObj.folder }}{{ fileObj.company }}
                   </p>
                 </div>
-                <button
-                  @click="deleteFile(fileObj)"
-                  class="btn action-btn danger"
-                >
-                  Delete
-                </button>
+                <button @click="deleteFile(fileObj)" class="btn action-btn danger">Delete</button>
               </li>
             </ul>
 
-            <p
-              v-else-if="files.length > 0 && !loadingFiles"
-              class="info-text"
-            >
+            <p v-else-if="files.length > 0 && !loadingFiles" class="info-text">
               No files on this page.
             </p>
-            <p
-              v-if="files.length === 0 && !loadingFiles && !errorFiles"
-              class="info-text"
-            >
+            <p v-if="files.length === 0 && !loadingFiles && !errorFiles" class="info-text">
               No files available.
             </p>
           </div>
 
           <!-- Pagination Controls -->
           <div v-if="totalPages > 1" class="pagination-controls">
-            <button
-              class="btn page-btn"
-              :disabled="currentPage === 1"
-              @click="currentPage--"
-            >
+            <button class="btn page-btn" :disabled="currentPage === 1" @click="currentPage--">
               Prev
             </button>
-            <span class="page-info">
-              Page {{ currentPage }} of {{ totalPages }}
-            </span>
+            <span class="page-info"> Page {{ currentPage }} of {{ totalPages }} </span>
             <button
               class="btn page-btn"
               :disabled="currentPage === totalPages"
@@ -158,7 +124,7 @@
             @click="runSelectedPipeline"
             :disabled="loadingPipeline || !isPipelineValid"
           >
-            {{ loadingPipeline ? "Processing..." : "Execute Pipeline" }}
+            {{ loadingPipeline ? 'Processing...' : 'Execute Pipeline' }}
           </button>
 
           <p v-if="errorPipeline" class="error-text">{{ errorPipeline }}</p>
@@ -170,10 +136,10 @@
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios'
 
 export default {
-  name: "RunPipelinesView",
+  name: 'RunPipelinesView',
   data() {
     return {
       // File data
@@ -185,7 +151,7 @@ export default {
       itemsPerPage: 5,
 
       // Pipeline data
-      selectedPipeline: "runFiles",
+      selectedPipeline: 'runFiles',
       pipelineOptions: {
         runFilesDate: this.getToday(),
         startDate: this.getOneMonthAgo(),
@@ -198,146 +164,151 @@ export default {
 
       // For "select all" toggle
       selectAll: false,
-    };
+    }
   },
   computed: {
     totalPages() {
-      return Math.ceil(this.files.length / this.itemsPerPage) || 0;
+      return Math.ceil(this.files.length / this.itemsPerPage) || 0
     },
     paginatedFiles() {
-      const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-      return this.files.slice(startIndex, startIndex + this.itemsPerPage);
+      const startIndex = (this.currentPage - 1) * this.itemsPerPage
+      return this.files.slice(startIndex, startIndex + this.itemsPerPage)
     },
     isPipelineValid() {
-      if (this.selectedPipeline === "runFiles") {
-        return this.selectedFiles.length > 0 && !!this.pipelineOptions.runFilesDate;
-      } else if (this.selectedPipeline === "updateDatabase") {
-        return this.pipelineOptions.startDate && this.pipelineOptions.endDate;
-      } else if (this.selectedPipeline === "binderVerification") {
-        return !!this.pipelineOptions.binderDate;
+      if (this.selectedPipeline === 'runFiles') {
+        return this.selectedFiles.length > 0 && !!this.pipelineOptions.runFilesDate
+      } else if (this.selectedPipeline === 'updateDatabase') {
+        return this.pipelineOptions.startDate && this.pipelineOptions.endDate
+      } else if (this.selectedPipeline === 'binderVerification') {
+        return !!this.pipelineOptions.binderDate
       }
-      return false;
+      return false
     },
   },
   methods: {
     getToday() {
-      const now = new Date();
-      return now.toISOString().split("T")[0];
+      const now = new Date()
+      return now.toISOString().split('T')[0]
     },
     getOneMonthAgo() {
-      const date = new Date();
-      date.setMonth(date.getMonth() - 1);
-      return date.toISOString().split("T")[0];
+      const date = new Date()
+      date.setMonth(date.getMonth() - 1)
+      return date.toISOString().split('T')[0]
     },
     getFirstOfMonth() {
-      const date = new Date();
-      date.setDate(1);
-      return date.toISOString().split("T")[0];
+      const date = new Date()
+      date.setDate(1)
+      return date.toISOString().split('T')[0]
     },
     // Return today's date in yyyy-mm-dd format
     getCurrentDate() {
-      const now = new Date();
-      return now.toISOString().split("T")[0];
+      const now = new Date()
+      return now.toISOString().split('T')[0]
     },
     // Return current date+time in yyyy-mm-ddThh:mm format
     getCurrentDateTime() {
-      const now = new Date();
-      return now.toISOString().slice(0, 16);
+      const now = new Date()
+      return now.toISOString().slice(0, 16)
     },
 
     async fetchFiles() {
-      this.loadingFiles = true;
-      this.errorFiles = null;
+      this.loadingFiles = true
+      this.errorFiles = null
       try {
-        const response = await axios.get(`/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
+        const response = await axios.get(
+          `https://dev.rocox.co/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`,
+        )
         if (!Array.isArray(response.data)) {
-          throw new Error("Expected array of file paths from the server");
+          throw new Error('Expected array of file paths from the server')
         }
         // Transform each file path into an object
         this.files = response.data.map((filePath) => {
-          const parts = filePath.split("/");
-          const fileName = parts.pop();
-          const company = parts.pop() || "";
-          const folder = parts.pop() || "";
+          const parts = filePath.split('/')
+          const fileName = parts.pop()
+          const company = parts.pop() || ''
+          const folder = parts.pop() || ''
           return {
             path: filePath,
             fileName,
-            folder: folder ? folder + " => " : "",
+            folder: folder ? folder + ' => ' : '',
             company,
-          };
-        });
+          }
+        })
       } catch (error) {
-        this.errorFiles = "Failed to fetch files.";
+        this.errorFiles = 'Failed to fetch files.'
       } finally {
-        this.loadingFiles = false;
+        this.loadingFiles = false
       }
     },
 
     toggleSelectAll() {
       if (this.selectAll) {
-        this.selectedFiles = [...this.files];
+        this.selectedFiles = [...this.files]
       } else {
-        this.selectedFiles = [];
+        this.selectedFiles = []
       }
     },
 
     async runSelectedPipeline() {
-      this.loadingPipeline = true;
-      this.responsePipeline = null;
-      this.errorPipeline = null;
+      this.loadingPipeline = true
+      this.responsePipeline = null
+      this.errorPipeline = null
 
       try {
-        let endpoint = "";
-        let payload = {};
+        let endpoint = ''
+        let payload = {}
 
-        if (this.selectedPipeline === "runFiles") {
-          endpoint = "run_files";
+        if (this.selectedPipeline === 'runFiles') {
+          endpoint = 'run_files'
           payload = {
             paths_to_process: this.selectedFiles.map((f) => f.path),
             runDate: this.pipelineOptions.runFilesDate,
-          };
-        } else if (this.selectedPipeline === "updateDatabase") {
-          endpoint = "update_sql";
+          }
+        } else if (this.selectedPipeline === 'updateDatabase') {
+          endpoint = 'update_sql'
           payload = {
             startDate: this.pipelineOptions.startDate,
             endDate: this.pipelineOptions.endDate,
             getBinder: 0,
-          };
-        } else if (this.selectedPipeline === "binderVerification") {
-          endpoint = "run_binder_verification";
+          }
+        } else if (this.selectedPipeline === 'binderVerification') {
+          endpoint = 'run_binder_verification'
           payload = {
             runDate: this.pipelineOptions.binderDate,
-          };
+          }
         }
 
         const resp = await axios.post(
-          `/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
           payload,
-          { headers: { "Content-Type": "application/json" } }
-        );
-        this.responsePipeline = resp.data.message || "Pipeline executed successfully!";
+          { headers: { 'Content-Type': 'application/json' } },
+        )
+        this.responsePipeline = resp.data.message || 'Pipeline executed successfully!'
       } catch (error) {
-        this.errorPipeline = error.response?.data?.message || "Pipeline execution failed.";
+        this.errorPipeline = error.response?.data?.message || 'Pipeline execution failed.'
       } finally {
-        this.loadingPipeline = false;
+        this.loadingPipeline = false
       }
     },
 
     // Demo for deleting a file (not required to change for pipeline logic)
     async deleteFile(fileObj) {
       try {
-        await axios.post(`/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
-          filePath: fileObj.path,
-        });
+        await axios.post(
+          `https://dev.rocox.co/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          {
+            filePath: fileObj.path,
+          },
+        )
         // Refresh after delete
-        this.fetchFiles();
+        this.fetchFiles()
       } catch (error) {
-        console.error("Error deleting file:", error.message);
-        this.errorFiles = "Failed to delete file.";
+        console.error('Error deleting file:', error.message)
+        this.errorFiles = 'Failed to delete file.'
       }
     },
   },
-};
+}
 </script>
 
 <style>
@@ -348,7 +319,7 @@ export default {
   color: #333; /* Dark text for readability */
   padding: 2rem;
   border-radius: 8px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 .header h1 {

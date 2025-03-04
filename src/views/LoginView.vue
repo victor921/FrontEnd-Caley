@@ -16,14 +16,23 @@ async function handleCredentialResponse(response) {
     const decoded = jwtDecode(token);
     const userData = {
       token,
-      email: decoded.email,
+      email: decoded.email.toLowerCase(),
       name: decoded.name || decoded.given_name,
       tokenExpiration: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : null,
     };
-    await userStore.signIn(userData);
 
+    await userStore.signIn(userData);
     const userEmail = userStore.user.email.toLowerCase();
-    if (userStore.blacklist && userStore.blacklist.includes(userEmail)) {
+
+    // Determine if the user is blacklisted:
+    // A user is blacklisted if either their email is explicitly in the blacklist,
+    // or if the blacklist contains "*" and they are not in the admin list.
+    const isBlacklisted =
+      userStore.blacklist &&
+      (userStore.blacklist.includes(userEmail) ||
+        (userStore.blacklist.includes("*") && !userStore.adminList.includes(userEmail)));
+
+    if (isBlacklisted) {
       errorMessage.value =
         "Your account is restricted. You will be signed out in 10 seconds. Please contact your administrator.";
       countdown.value = 10;
@@ -37,6 +46,7 @@ async function handleCredentialResponse(response) {
         }
       }, 1000);
     } else {
+      // If the user is not blacklisted, route based on admin status.
       if (userStore.isAdmin) {
         router.push('/home');
       } else {

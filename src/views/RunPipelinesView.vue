@@ -19,8 +19,8 @@
               :disabled="loadingFiles"
               :aria-label="loadingFiles ? 'Refreshing files...' : 'Refresh file list'"
             >
-              <i class="pi pi-refresh" :class="{ 'spinning': loadingFiles }"></i>
-              <span>{{ loadingFiles ? "Refreshing" : "Refresh" }}</span>
+              <i class="pi pi-refresh" :class="{ spinning: loadingFiles }"></i>
+              <span>{{ loadingFiles ? 'Refreshing' : 'Refresh' }}</span>
             </button>
             <label class="select-all">
               <input
@@ -36,11 +36,7 @@
 
         <!-- File List -->
         <div class="file-list" v-if="!errorFiles && !loadingFiles">
-          <div
-            v-for="(fileObj, index) in paginatedFiles"
-            :key="index"
-            class="file-card"
-          >
+          <div v-for="(fileObj, index) in paginatedFiles" :key="index" class="file-card">
             <div class="file-details">
               <label class="file-checkbox">
                 <input
@@ -171,7 +167,7 @@
           >
             <i class="pi pi-play" v-if="!loadingPipeline"></i>
             <i class="pi pi-spin pi-spinner" v-else></i>
-            {{ loadingPipeline ? "Running..." : "Run Pipeline" }}
+            {{ loadingPipeline ? 'Running...' : 'Run Pipeline' }}
           </button>
 
           <!-- Status Messages -->
@@ -184,7 +180,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from 'axios'
 
 export default {
   name: 'RunPipelinesView',
@@ -210,145 +206,150 @@ export default {
       loadingPipeline: false,
       responsePipeline: null,
       errorPipeline: null,
-    };
+    }
   },
   computed: {
     totalPages() {
-      return Math.ceil(this.files.length / this.itemsPerPage) || 0;
+      return Math.ceil(this.files.length / this.itemsPerPage) || 0
     },
     paginatedFiles() {
-      const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-      return this.files.slice(startIndex, startIndex + this.itemsPerPage);
+      const startIndex = (this.currentPage - 1) * this.itemsPerPage
+      return this.files.slice(startIndex, startIndex + this.itemsPerPage)
     },
     isPipelineValid() {
       if (this.selectedPipeline === 'runFiles') {
-        return this.selectedFiles.length > 0 && !!this.pipelineOptions.runFilesDate;
+        return this.selectedFiles.length > 0 && !!this.pipelineOptions.runFilesDate
       } else if (this.selectedPipeline === 'updateDatabase') {
-        return this.pipelineOptions.startDate && this.pipelineOptions.endDate;
+        return this.pipelineOptions.startDate && this.pipelineOptions.endDate
       } else if (this.selectedPipeline === 'binderVerification') {
-        return !!this.pipelineOptions.binderDate;
+        return !!this.pipelineOptions.binderDate
       }
-      return false;
+      return false
     },
   },
   methods: {
     // Date Helpers
     getToday() {
-      return new Date().toISOString().split('T')[0];
+      return new Date().toISOString().split('T')[0]
     },
     getOneMonthAgo() {
-      const date = new Date();
-      date.setMonth(date.getMonth() - 1);
-      return date.toISOString().split('T')[0];
+      const date = new Date()
+      date.setMonth(date.getMonth() - 1)
+      return date.toISOString().split('T')[0]
     },
     getFirstOfMonth() {
-      const date = new Date();
-      date.setDate(1);
-      return date.toISOString().split('T')[0];
+      const date = new Date()
+      date.setDate(1)
+      return date.toISOString().split('T')[0]
     },
     getLocalDateTime() {
-      const now = new Date();
-      const offsetMs = now.getTime() - now.getTimezoneOffset() * 60000;
-      return new Date(offsetMs).toISOString().slice(0, 16);
+      const now = new Date()
+      const offsetMs = now.getTime() - now.getTimezoneOffset() * 60000
+      return new Date(offsetMs).toISOString().slice(0, 16)
     },
     formatDateTimeWithMicros(dtLocal) {
-      if (!dtLocal) return null;
-      const dateObj = new Date(dtLocal);
-      const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      const hour = String(dateObj.getHours()).padStart(2, '0');
-      const minute = String(dateObj.getMinutes()).padStart(2, '0');
-      const second = String(dateObj.getSeconds()).padStart(2, '0');
-      const micros = '000001';
-      return `${year}-${month}-${day}T${hour}:${minute}:${second}.${micros}`;
+      if (!dtLocal) return null
+      const dateObj = new Date(dtLocal)
+      const year = dateObj.getFullYear()
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const day = String(dateObj.getDate()).padStart(2, '0')
+      const hour = String(dateObj.getHours()).padStart(2, '0')
+      const minute = String(dateObj.getMinutes()).padStart(2, '0')
+      const second = String(dateObj.getSeconds()).padStart(2, '0')
+      const micros = '000001'
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}.${micros}`
     },
 
     // File Data
     async fetchFiles() {
-      this.loadingFiles = true;
-      this.errorFiles = null;
+      this.loadingFiles = true
+      this.errorFiles = null
       try {
-        const response = await axios.get(`/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`);
+        const response = await axios.get(
+          `https://dev.rocox.co/api/fetch_files?code=${process.env.VUE_APP_FUNCTION_KEY}`,
+        )
         if (!Array.isArray(response.data)) {
-          throw new Error('Expected an array of file paths from server');
+          throw new Error('Expected an array of file paths from server')
         }
-        this.files = response.data.map(rawPath => {
-          const parts = rawPath.split('/');
-          const fileName = parts.pop();
-          const company = parts.pop() || '';
-          const folder = parts.pop() || '';
+        this.files = response.data.map((rawPath) => {
+          const parts = rawPath.split('/')
+          const fileName = parts.pop()
+          const company = parts.pop() || ''
+          const folder = parts.pop() || ''
           return {
             path: rawPath,
             fileName,
             folder: folder ? folder + ' => ' : '',
             company,
-          };
-        });
+          }
+        })
       } catch (error) {
-        this.errorFiles = 'Failed to fetch files.';
+        this.errorFiles = 'Failed to fetch files.'
       } finally {
-        this.loadingFiles = false;
+        this.loadingFiles = false
       }
     },
     toggleSelectAll() {
-      this.selectedFiles = this.selectAll ? [...this.files] : [];
+      this.selectedFiles = this.selectAll ? [...this.files] : []
     },
     async deleteFile(fileObj) {
       try {
-        await axios.post(`/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`, {
-          filePath: fileObj.path,
-        });
-        this.fetchFiles();
+        await axios.post(
+          `https://dev.rocox.co/api/delete_files?code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          {
+            filePath: fileObj.path,
+          },
+        )
+        this.fetchFiles()
       } catch (error) {
-        this.errorFiles = 'Failed to delete file.';
+        this.errorFiles = 'Failed to delete file.'
       }
     },
 
     // Pipeline
     async runSelectedPipeline() {
-      this.loadingPipeline = true;
-      this.errorPipeline = null;
-      this.responsePipeline = null;
+      this.loadingPipeline = true
+      this.errorPipeline = null
+      this.responsePipeline = null
 
       try {
-        let endpoint = '';
-        let payload = {};
+        let endpoint = ''
+        let payload = {}
 
         if (this.selectedPipeline === 'runFiles') {
-          endpoint = 'run_files';
-          const finalDate = this.formatDateTimeWithMicros(this.pipelineOptions.runFilesDate);
+          endpoint = 'run_files'
+          const finalDate = this.formatDateTimeWithMicros(this.pipelineOptions.runFilesDate)
           payload = {
-            paths_to_process: this.selectedFiles.map(f => f.path),
+            paths_to_process: this.selectedFiles.map((f) => f.path),
             runDate: finalDate,
-          };
+          }
         } else if (this.selectedPipeline === 'updateDatabase') {
-          endpoint = 'update_sql';
+          endpoint = 'update_sql'
           payload = {
             startDate: this.pipelineOptions.startDate,
             endDate: this.pipelineOptions.endDate,
-          };
+          }
         } else if (this.selectedPipeline === 'binderVerification') {
-          endpoint = 'run_binder_verification';
+          endpoint = 'run_binder_verification'
           payload = {
             runDate: this.pipelineOptions.binderDate,
-          };
+          }
         }
 
         const resp = await axios.post(
-          `/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
+          `https://dev.rocox.co/api/execute_pipeline?pipeline_name=${endpoint}&code=${process.env.VUE_APP_FUNCTION_KEY}`,
           payload,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        this.responsePipeline = resp.data.message || 'Pipeline executed successfully!';
+          { headers: { 'Content-Type': 'application/json' } },
+        )
+        this.responsePipeline = resp.data.message || 'Pipeline executed successfully!'
       } catch (error) {
-        this.errorPipeline = error.response?.data?.message || 'Pipeline execution failed.';
+        this.errorPipeline = error.response?.data?.message || 'Pipeline execution failed.'
       } finally {
-        this.loadingPipeline = false;
+        this.loadingPipeline = false
       }
     },
   },
-};
+}
 </script>
 
 <style scoped>
@@ -472,7 +473,9 @@ export default {
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 0.75rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .file-card:hover {
