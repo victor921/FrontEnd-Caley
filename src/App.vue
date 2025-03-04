@@ -8,7 +8,8 @@ export default {
   methods: {
     async fetchData() {
       try {
-        const response = await axios.get("/api/test");
+       const response = await axios.get("/api/test");
+        console.log("Request URL:", response.request.responseURL);
         console.log("API Response:", response.data); // "Hello, test8!"
       } catch (error) {
         console.error("API call error:", error);
