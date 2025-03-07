@@ -22,9 +22,18 @@ import 'prismjs/themes/prism.css';
 import 'prismjs';
 import 'prismjs/components/prism-sql';
 import { useUserStore } from '@/stores/userStore'
+// import { initializeMsal } from "./utils/msalConfig";
 
 const app = createApp(App)
 const pinia = createPinia();
+
+// const initApp = async () => {
+//   await initializeMsal();
+//   const app = createApp(App);
+//   app.mount("#app");
+// };
+
+// initApp();
 
 // Use plugins
 app.use(router)
